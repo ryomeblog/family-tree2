@@ -201,17 +201,42 @@ function layoutFamily(fam: FamilyArg) {
     }
   }
 
-  // Roots = people not referenced as childId in any link.
+  // Roots = people not referenced as childId in any link — BUT ALSO
+  // we must exclude people whose spouse IS a child of someone. If we
+  // let such a person be a root, they would claim the union and yank
+  // the spouse away from the spouse's true ancestor subtree, leaving
+  // the real grandparents with an empty children list (rendering as a
+  // detached couple).
   const childIds = new Set(fam.links.map((l) => l.childId));
+  const spousesOf = (pid: string): string[] =>
+    fam.unions
+      .filter((u) => u.partnerA === pid || u.partnerB === pid)
+      .map((u) => (u.partnerA === pid ? u.partnerB : u.partnerA));
+  const isTopAncestor = (pid: string): boolean => {
+    if (childIds.has(pid)) return false;
+    for (const sp of spousesOf(pid)) if (childIds.has(sp)) return false;
+    return true;
+  };
   const allPersons = Object.values(fam.people);
   const rootEntries: Entry[] = [];
   for (const p of allPersons) {
-    if (childIds.has(p.id)) continue;
+    if (!isTopAncestor(p.id)) continue;
     if (placed.has(p.id)) continue;
     const e = buildEntry(p.id);
     if (e) rootEntries.push(e);
   }
-  // Orphans: anyone still unplaced (cycles, etc).
+  // Second pass — people with no parents but with spouses-that-do.
+  // They weren't claimed by their spouse's ancestor subtree (e.g. both
+  // sides have grandparents) so they need to appear somewhere. Treat
+  // them as roots now.
+  for (const p of allPersons) {
+    if (placed.has(p.id)) continue;
+    if (childIds.has(p.id)) continue;
+    const e = buildEntry(p.id);
+    if (e) rootEntries.push(e);
+  }
+  // Final pass — any remaining orphans (cycles, disconnected sub-
+  // graphs).
   for (const p of allPersons) {
     if (placed.has(p.id)) continue;
     const e = buildEntry(p.id);

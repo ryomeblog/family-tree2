@@ -1006,18 +1006,18 @@ const ParentFlow: React.FC<{
     mode: "existing" | "new",
     id: string,
     draft: NewPersonDraft,
-    role: string,
+    label: string,
   ): Person | undefined => {
     if (mode === "existing") {
       const p = family.people[id];
       if (!p) {
-        store.showToast("err", `${role}を選んでください`);
+        store.showToast("err", `${label}を選んでください`);
         return;
       }
       return p;
     }
     if (!draft.surname.trim() && !draft.given.trim()) {
-      store.showToast("err", `${role}の姓か名を入れてください`);
+      store.showToast("err", `${label}の姓か名を入れてください`);
       return;
     }
     const p: Person = {
@@ -1025,7 +1025,6 @@ const ParentFlow: React.FC<{
       surname: draft.surname.trim(),
       given: draft.given.trim(),
       gender: draft.gender,
-      role,
     };
     store.addPerson(familyId, p);
     return p;
