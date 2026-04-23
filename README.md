@@ -1,248 +1,286 @@
-# Handoff: ファミリーツリー２（日本の家系図 PWA）
+# ファミリーツリー２
 
-Claude Code でのローカル実装用ハンドオフパッケージ。
+「絵本のように」家族の歴史を残せる、**端末内完結型**の家系図 PWA。
+日本語専用・シニア世代向け・オフライン動作・サインアップ不要。
+
+- **リポジトリ**: `family-tree2`
+- **配信**: GitHub Pages（`https://<user>.github.io/family-tree2/`）
+- **ルーティング**: HashRouter（静的ホスティング対応）
+- **言語**: 日本語のみ（UI・ドキュメント）
 
 ---
 
-## 概要（Overview）
+## 主な機能
 
-「絵本のように」家族の歴史を残せる、**端末内完結型**の家系図 Web アプリ。
-高齢の日本語ユーザーが写真・エピソード・関係性を記録し、次世代へ引き継げる体験を提供する。
+- 家系の作成・切替・書き出し（`.ftree2`）・取り込み — **複数家系対応**
+- 人物の追加・編集・削除、肖像写真のアップロード（Canvas で 1600px にリサイズ＋ 320px サムネ）
+- 関係の追加（**配偶者 ／ 元配偶者 ／ 親2人 ／ 子複数 ／ 兄弟姉妹 ／ 養子**）
+- 思い出ノート（TipTap リッチテキスト本文、写真最大 10 枚、**閲覧者フィルタ**）
+- FuzzyDate（西暦・和暦・年のみ・不明）対応の生没年
+- 家系図：世代別自動レイアウト、パン／ズーム、人物ノードクリックで詳細遷移
+- 家系図 PNG 書き出し（UI 要素なし・ノード全体を自然サイズで出力）
+- 利用規約・プライバシーポリシー（JSON 駆動、バージョン管理）
+- PWA：`manifest.webmanifest`、Service Worker、`beforeinstallprompt` 対応、永続化要求
 
-- **言語**: 日本語のみ
-- **対象**: シニア世代（親・祖父母）
-- **配信**: GitHub Pages（静的）
-- **PWA**: ホーム追加・オフライン動作
-- **データ**: クラウド非利用、localStorage + IndexedDB のみ
+---
 
-## このバンドルについて（About the Design Files）
+## クイックスタート
 
-同梱の HTML／TSX ファイルはすべて**デザインリファレンス**です。
-意図した見た目と挙動を示す**ワイヤーフレーム（低忠実度）プロトタイプ**であり、そのままコピペして本番に投入するコードではありません。
+```bash
+# Node 24
+nvm use 24 || nvm install 24
+npm install
+npm run dev        # http://localhost:5173/family-tree2/
+npm run build
+npm run preview
+npm run typecheck  # tsc --noEmit
+npm run lint
+npm run format
+```
 
-タスクは、このワイヤーフレームをもとに、本 README と `DESIGN.md` に沿って
-**Vite + React + TypeScript + Tailwind CSS** のプロジェクトを新規に立ち上げ、
-機能を段階的に実装していくことです。
+本番 URL と同じベースパス `/family-tree2/` で dev も起動します（`vite.config.ts` で `base` 指定）。
 
-## 忠実度（Fidelity）
+### デプロイ
 
-**低忠実度（Lo-fi）ワイヤーフレーム** です。
+`.github/workflows/deploy.yml` が `main` への push で GitHub Pages に自動デプロイします。リポジトリ Settings → Pages で Source を `GitHub Actions` に設定してください。
 
-- 目的: 画面構成・情報階層・主要インタラクションの確定
-- スタイル: 墨 + 朱 + クリーム背景の「絵本スケッチ」調。手描き風フォントで最終ビジュアルではないことを明示
-- 開発者はレイアウトと機能をこれらから読み取り、**最終的なビジュアル方向性は別途ハイファイ UI キットで確定**する
-- 現段階では正しい**構造・要素・コピーライティング・情報密度**を再現することを優先
+---
 
-## 画面一覧（22 画面）
+## アプリのルート
 
-詳細は `DESIGN.md §2` 参照。
+| ルート | 画面 |
+|---|---|
+| `/#/` | ランディング |
+| `/#/home` | ダッシュボード（家系一覧） |
+| `/#/new` | 新規家系作成 |
+| `/#/open` | `.ftree2` ファイルを開く |
+| `/#/import` | 取り込み（プレビュー → 確定） |
+| `/#/settings` | 設定 |
+| `/#/terms` | 利用規約（JSON 駆動） |
+| `/#/privacy` | プライバシーポリシー |
+| `/#/family/:fid/tree` | 家系図エディタ |
+| `/#/family/:fid/memories` | 思い出一覧 |
+| `/#/family/:fid/memory/new` | 思い出を書く |
+| `/#/family/:fid/memory/:mid` | 思い出を読む |
+| `/#/family/:fid/memory/:mid/edit` | 思い出編集 |
+| `/#/family/:fid/person/new` | 人物を追加 |
+| `/#/family/:fid/person/:pid` | 人物詳細 |
+| `/#/family/:fid/person/:pid/edit` | 人物編集 |
+| `/#/family/:fid/relate` | 関係を追加 |
+| `/#/family/:fid/delete` | 家系削除 |
+| `/#/family/:fid/photo/:pid` | 写真ライトボックス |
 
-| # | 画面 | ルート | 役割 |
-|---|---|---|---|
-| 01 | ランディング | `/` | 未ログイン時のトップ |
-| 02 | ダッシュボード | `/home` | 家系切替・一覧 |
-| 03 | 家系図エディタ | `/family/:id/tree` | **中核画面** |
-| 04 | 人物詳細 | `/family/:id/person/:pid` | 人物プロフィール |
-| 05 | 人物を追加 | `/family/:id/person/new` | モーダル |
-| 06 | 思い出一覧 | `/family/:id/memories` | タイムライン |
-| 07 | 新規家系作成 | `/new` | モーダル |
-| 08 | ファイルを開く | `/open` | .ftree2 取り込み入口 |
-| 09 | 設定 | `/settings` | データ管理 |
-| 10 | 取り込み | `/import` | .ftree2 プレビュー |
-| 11 | 取り込みエラー | — | モーダル |
-| 12 | 家系メニュー | — | ドロップダウン |
-| 13 | 関係を追加 | — | モーダル |
-| 14 | 写真ライトボックス | — | 最大 10 枚 |
-| 15 | 思い出を書く | `/family/:id/memory/:mid/edit` | **閲覧者登録あり** |
-| 16 | 思い出を読む | `/family/:id/memory/:mid` | 閲覧ガード |
-| 17 | PWA スプラッシュ / オフライン | — | SW 制御 |
-| 18 | 空状態（6種） | — | 各画面内 |
-| 19 | モバイル版 | — | レスポンシブ |
-| 20 | 削除の確認 | — | 二重確認モーダル |
-| 21 | 容量・エラー警告 | — | トースト／ダイアログ |
-| 22 | 人物を編集 | `/family/:id/person/:pid/edit` | モーダル |
-
-各画面のワイヤーフレームは `wireframes/Wire01Landing.tsx` 〜 `Wire22EditPerson.tsx` を参照。
-統合ビューは `Wireframes.html` をブラウザで開けば確認可。
-
-## 確定事項（重要）
-
-| # | 項目 | 決定 |
-|---|---|---|
-| Q1 | 複数家系の切替 | マイ家系図画面で切替可 |
-| Q2 | 同名家系取り込み | **両方残す**。家系は ID で管理 |
-| Q3 | クラウド同期 | **今後も実装しない** |
-| Q4 | 画像最大辺 | **1600px**（JPEG 0.82・サムネ 320px） |
-| Q5 | パスコード保護 | 実装しない（閲覧者制御は UI フィルタのみ） |
-| Q6 | スタイル | **Tailwind + CSS 変数** 併用 |
-| Q7 | リッチテキスト | **TipTap**（H1/H2・太字・斜体・引用・リスト） |
-| Q8 | 自動テスト | v0.1 では**実装しない** |
-| Q9 | Lint / Format | **ESLint v9（flat config）+ Prettier**、ダブルクォート、保存時フォーマット |
-| Q10 | Node | **Node 24** |
-| — | **自動保存** | **なし**（手動保存ボタンのみ） |
-| — | URL 共有 | 廃止 |
-| — | 印刷 | 廃止、「画像保存」のみ |
+---
 
 ## 技術スタック
 
-詳細は `DESIGN.md §1.4` 参照。
+| 層 | 採用技術 |
+|---|---|
+| 言語 | TypeScript 5.5 |
+| フレームワーク | React 18 |
+| ビルド | Vite 5 |
+| ルーティング | React Router v6（HashRouter） |
+| 状態管理 | Zustand 4（`persist` ミドルウェア + 独自 A/B slot storage） |
+| スタイル | Tailwind 3 + CSS 変数（`src/styles/tokens.css`） |
+| フォント | Kaisei Decol（明朝） / Klee One（手書き）— Google Fonts |
+| 家系レイアウト | **独自世代ベースエンジン**（`src/pages/TreeEditorPage.tsx` 内 `layoutFamily()`） |
+| リッチテキスト | TipTap（StarterKit + Placeholder + Link） |
+| ストレージ（構造） | localStorage、2 スロット A/B 交互書き込み（`src/storage/localStoreAB.ts`） |
+| ストレージ（画像） | IndexedDB `idb` ラッパ（`src/storage/idb.ts`） |
+| ファイル I/O | JSZip（`.ftree2` ZIP 生成・展開） |
+| 画像書き出し | `html-to-image` |
+| PWA | `vite-plugin-pwa`（GenerateSW） |
+| Lint/Format | ESLint v9 (flat config) + Prettier（ダブルクォート） |
+| Node | 24.x |
 
-- React 18 / TypeScript 5 / Vite 5 / Tailwind 3
-- React Router v6
-- Zustand（3ストア: family / app / ui）
-- TipTap（@tiptap/react, @tiptap/pm, @tiptap/starter-kit, @tiptap/extension-placeholder, @tiptap/extension-link）
-- d3-hierarchy（家系レイアウト）
-- idb（IndexedDB）
-- jszip（.ftree2 生成・展開）
-- html-to-image（家系図 PNG 保存）
-- vite-plugin-pwa / workbox-window
+---
+
+## ディレクトリ構成
+
+```
+src/
+├── App.tsx                ルータ + グローバルトースト + PWA 起動処理
+├── main.tsx               エントリ (`import "./index.css"`)
+├── index.css              Tailwind + トークン import + スクロール所有権
+├── components/
+│   ├── ui.tsx             プリミティブ (BarePage, Frame, Hanko, SketchBtn, Field, ...)
+│   └── YearPicker.tsx     スクロール追加読込の年セレクタ
+├── pages/
+│   ├── LandingPage.tsx          (/)
+│   ├── DashboardPage.tsx        (/home)  カードにケバブメニュー
+│   ├── TreeEditorPage.tsx       (/family/:fid/tree) ★中核
+│   ├── PersonDetailPage.tsx
+│   ├── MemoriesListPage.tsx
+│   ├── MemoryDetailPage.tsx
+│   ├── MemoryEditorPage.tsx
+│   ├── OpenFamilyPage.tsx
+│   ├── ImportPage.tsx
+│   ├── SettingsPage.tsx
+│   ├── NotFoundPage.tsx
+│   ├── LegalPage.tsx            共通ビューア
+│   ├── TermsPage.tsx            /terms
+│   └── PrivacyPage.tsx          /privacy
+├── modals/
+│   ├── NewFamilyModal.tsx
+│   ├── AddPersonModal.tsx
+│   ├── EditPersonModal.tsx
+│   ├── PersonForm.tsx           add/edit 共通
+│   ├── RelationAddModal.tsx     ★親2人 ／ 子複数 対応
+│   ├── DeleteConfirmModal.tsx   person / memory / family(名前入力必須) / all
+│   ├── ImportErrorModal.tsx
+│   ├── FamilyMenuDropdown.tsx   ヘッダからインプレース展開
+│   ├── PhotoLightbox.tsx
+│   └── SearchPopover.tsx        人物・思い出横断検索
+├── features/
+│   ├── importExport/
+│   │   ├── writeFtree2.ts       JSZip でパッケージング
+│   │   └── readFtree2.ts        preview + commit、ImportError クラス
+│   ├── memory/
+│   │   └── RichEditor.tsx       TipTap
+│   └── photos/
+│       ├── resize.ts            1600px / 320px サムネ
+│       ├── ingest.ts            <input type=file> ＋ IDB 保存
+│       └── PhotoFromIdb.tsx     PhotoId → Blob URL
+├── domain/
+│   ├── types.ts                 Person / Union / ParentChildLink / Memory / Family
+│   ├── fuzzyDate.ts             元号⇄西暦、比較、フォーマッタ
+│   └── selectors.ts             canViewMemory / parentsOf / spousesOf / childrenOf / siblingsOf / memoriesOfPerson
+├── stores/
+│   └── familyStore.ts           Zustand（現在は 1 ストア）＋ persist → localStoreAB
+├── storage/
+│   ├── localStoreAB.ts          .a / .b 2 スロット + seq 書き込み
+│   └── idb.ts                   写真 Blob ストア、URL キャッシュ
+├── pwa/
+│   ├── registerSW.ts            virtual:pwa-register
+│   ├── persist.ts               storage.persist / estimate
+│   ├── install.ts               beforeinstallprompt 捕捉
+│   └── reminder.ts              月 1 書き出しリマインド
+├── styles/
+│   └── tokens.css               CSS 変数
+├── data/
+│   └── legal/
+│       ├── terms.json           version / effectiveDate / lastUpdatedAt / sections
+│       ├── privacy.json         同上
+│       └── types.ts
+└── types/
+    └── pwa.d.ts                 virtual:pwa-register 型
+
+doc/
+├── DESIGN.md                   仕様・設計書（正本）
+├── IMPLEMENTATION_PLAN.md      実装計画書＋進捗＋残タスク
+└── Wireframes.html             初期ワイヤー（現在未使用・参考）
+
+public/
+└── icons/                      icon-192.svg / icon-512.svg / maskable-512.svg
+
+scripts/                        Playwright ベースの目視検証スクリプト
+  snap.mjs / inspect.mjs / dual-ancestor.mjs / yearpicker.mjs / export-test.mjs / scroll-audit.mjs
+```
+
+---
 
 ## データモデル（要点）
 
-詳細型定義は `DESIGN.md §3.2`。
+完全な型は `src/domain/types.ts` 参照。
 
 ```ts
 interface Family {
   id: string;
   name: string;
-  rootPerson: PersonId;
-  persons: Record<PersonId, Person>;
-  unions:  Record<UnionId,  Union>;       // 夫婦中間エンティティ（再婚対応）
-  links:   ParentChildLink[];             // 親(Union|Person) → 子
+  theme: "picture-book" | "scroll" | "modern";
+  themeColor: string;
+  rootPersonId: PersonId;
+  people: Record<PersonId, Person>;
+  unions: Union[];             // {id, partnerA, partnerB}
+  links: ParentChildLink[];    // {parentUnion? | parentId?, childId}
   memories: Record<MemoryId, Memory>;
-  meta: { version: "1"; createdAt; updatedAt; lastExportAt? };
+  generations: number;
+  lastUpdated: string;
 }
 
 interface Memory {
   id: MemoryId;
   title: string;
-  body: RichTextJSON;          // TipTap JSON
-  period?: FuzzyDate;
-  author: PersonId;              // 書き手・常に閲覧可
-  protagonist?: PersonId;        // 主人公
-  viewers: PersonId[];           // 閲覧者（書き手以外で読める人）
+  body: string;                // TipTap HTML (rich text) — プレーンテキスト保存時はそのまま
+  periodLabel: string;
+  authorId: PersonId;          // 書き手・常に閲覧可
+  protagonistId?: PersonId;    // 主人公
+  viewers: PersonId[];         // 閲覧者
   related: PersonId[];
   tags: string[];
-  photos: PhotoId[];             // <= 10
-  createdAt: number; updatedAt: number;
+  photos: number;
+  photoIds?: PhotoId[];        // IndexedDB の写真キー
+  year: string;
+  era?: string;
 }
 ```
 
-**重要なルール:**
+### 線描画ルール（家系図）
 
-- 子は**夫婦（Union）の中点**から接続線を下ろす（片親からではない）
-- `Memory` の閲覧権限は `canViewMemory(m, viewerPersonId)`:
-  - `viewerPersonId === m.author` → 可
-  - `m.viewers.includes(viewerPersonId)` → 可
-  - それ以外 → 不可
-- FuzzyDate は元号・年のみ・不明に対応
+- **子は夫婦（Union）の中点から**接続線を下ろす
+- 親が 2 union（A 側祖父母・B 側祖父母）の場合は **両 union それぞれから** 該当する子へ線を出す
+- レイアウトは `TreeEditorPage.tsx` の `layoutFamily()`：各世代を計算 → 同世代内で理想位置＋衝突回避で左右配置 → 子ユニットは両親 union 中点間に幅を取って配置
 
-## ストレージ戦略
+### 閲覧制御
 
-| 種別 | 保存先 | キー |
+`src/domain/selectors.ts` の `canViewMemory(m, viewerPersonId)`:
+- `viewerPersonId === m.authorId` → 可
+- `m.viewers.includes(viewerPersonId)` → 可
+- それ以外 → 不可（一覧・詳細ともフィルタ）
+
+### 永続化
+
+| 種別 | 保存先 | キー / ストア |
 |---|---|---|
-| アプリ状態 | localStorage | `ft2.state.v1`（A/B 2 スロット交互） |
-| 家系本体 | localStorage | `ft2.family.<id>.v1` |
-| 画像 Blob | IndexedDB | DB:`ft2` store:`photos` key:`PhotoId` |
+| アプリ状態（家系・設定） | localStorage | `ft2.state.v1.a` / `ft2.state.v1.b`（交互書込・`seq` で最新採用） |
+| 写真 Blob | IndexedDB | DB:`ft2` ・ store:`photos` ・ key:`PhotoId` / `PhotoId.thumb` |
 
-`.ftree2` は ZIP 形式:
-```
-/manifest.json        { version:"1", exportedAt, family:{id,name} }
-/family.json          Family 構造（画像は PhotoId 参照）
-/photos/<id>.jpg      元画像（最大辺 1600px）
-/photos/<id>.thumb.jpg サムネ 320px
-```
+Zustand の `persist` ミドルウェアから `localStoreAB` にブリッジ（`src/stores/familyStore.ts`）。
 
-## ルーティング・コンポーネント
-
-`DESIGN.md §4.2` を正として実装。主要ガード:
-
-- `family/*` 共通: 対象 Family が localStorage に無ければ `/home` へ
-- `memory/:mid` 入口: `canViewMemory()` が false なら 403 空状態
-- `memory/:mid/edit` は author のみ許可
-
-## 状態管理
-
-`DESIGN.md §4.1` 参照。Zustand 3 ストア:
-
-- `useFamily` — 開いている家系のドメイン＋`dirty`／`save()` 手動
-- `useApp` — 家系リスト・アクティブ家系
-- `useUI` — ライトボックス・ダイアログ・トースト
-
-**自動保存はしない。** `dirty===true` で離脱しようとしたら `beforeunload` で警告。
-
-## ビジュアルトークン（ワイヤー時点）
-
-本実装前にハイファイ UI キットで確定予定ですが、ワイヤーは以下を使用:
-
-- 背景: `#FFFEF8`（本文）／ `#F5F0E1`（薄クリーム）／ `#E8E2D0`（アプリ外余白）
-- 前景: `#1A1915`（墨）／ `#6B6456`（補助）／ `#8B8574`（薄墨）
-- アクセント: `#C0392B`（朱印・強調）／ `#FDF6C8`（付箋）
-- 見出し: `Kaisei Decol`（毛筆明朝）
-- 本文・注釈: `Klee One`（手書き風）
-
-これらは `:root` の CSS 変数として定義し、Tailwind の `theme.extend.colors` でエイリアスを張る運用。
-
-## ディレクトリ構成
-
-`DESIGN.md §6` が正。主な骨格のみ再掲:
+### `.ftree2` フォーマット
 
 ```
-src/
-├── main.tsx / App.tsx
-├── pages/          画面（01〜22 の page 部分）
-├── modals/         モーダル系
-├── features/
-│   ├── tree/       TreeCanvas, TreeEdges, layout, exportImage
-│   ├── memory/     RichText, PhotoGrid, ViewerPicker, accessControl
-│   ├── photos/     Lightbox, cropSquare, resize
-│   └── importExport/  writeFtree2, readFtree2
-├── stores/         familyStore, appStore, uiStore
-├── storage/        localStoreAB, idb
-├── domain/         types, fuzzyDate, selectors
-├── components/     共通 UI（Hanko, SketchBtn, Photo, Dialog, Toast 等）
-├── pwa/            registerSW, persist
-├── styles/         tokens.css, global.css
-└── wireframes/     低忠実度プレビュー（開発時のみ。ハイファイ版ができたら削除可）
+/manifest.json                 { version:"1", exportedAt, family:{id,name} }
+/family.json                   Family 構造
+/photos/<PhotoId>.jpg
+/photos/<PhotoId>.thumb.jpg
 ```
 
-## 開発コマンド
+`version: "1"` のみ対応。不一致は `ImportErrorModal` に遷移。
+
+---
+
+## 開発時のビジュアル検証
+
+私自身の描画確認手段がないため、Playwright で実ページをスクショし、吐き出された PNG を目視で確認する方式を採っています。
 
 ```bash
-nvm use 24            # Node 24
-npm install
-npm run dev           # 開発サーバー
-npm run build         # tsc + vite build
-npm run preview
-npm run typecheck
-npm run lint
-npm run format
+npm install --no-save --legacy-peer-deps playwright
+npx playwright install chromium
+npx vite --port 5173 --host 127.0.0.1 &    # 別プロセスで dev
+node scripts/inspect.mjs                   # 例：家系図の SVG 座標ダンプ
+node scripts/export-test.mjs               # 例：PNG 書き出し検証
 ```
 
-VS Code で開くと `.vscode/settings.json` により保存時に Prettier 整形 + ESLint 自動修正。
+保存先は `screenshots/` 配下。
 
-## ファイル
+`.mcp.json` で **Playwright MCP** も設定済みです（`@playwright/mcp`）。Claude Code のセッションを再起動して `.mcp.json` を承認すると、エージェントが能動的にブラウザを操作できます。
 
-本パッケージに含まれるファイル:
+---
 
-- `README.md`（本書）
-- `DESIGN.md` — 設計書（1 概要 / 2 画面設計 / 3 データ / 4 コンポーネント / 5 PWA / 6 ディレクトリ）
-- `Wireframes.html` — 22 画面のプレビュー（ブラウザで直接開ける）
-- `src/wireframes/` — 各画面 TSX（22 ファイル + `primitives.tsx` + `index.ts`）
-- `package.json` / `tsconfig.json` / `vite.config.ts` / `tailwind.config.js` / `postcss.config.js`
-- `.prettierrc.json` / `eslint.config.mjs`
-- `.vscode/settings.json` / `.vscode/extensions.json`
+## 既知の限界 / 今後の課題
 
-## 実装の進め方（推奨順）
+`doc/IMPLEMENTATION_PLAN.md` 付録 B を参照。主要なものだけ:
 
-1. `npm install` で依存解決を確認
-2. `DESIGN.md §6` に従い空のディレクトリ構造を作成
-3. `domain/types.ts` と `domain/fuzzyDate.ts` を実装
-4. `storage/localStoreAB.ts` と `storage/idb.ts` を実装
-5. `stores/*` の骨組み
-6. ルーティング・App シェル
-7. 画面を 03 家系図エディタ → 02 ダッシュボード → 04 人物詳細 の順で肉付け
-8. 思い出系（06 → 15 → 16）を実装（`accessControl.ts` を先に）
-9. インポート／エクスポート（10・08・09）
-10. PWA 化（17）・空状態（18）・モバイル調整（19）
-11. ワイヤー段階の UI を、後続のハイファイ UI キットに差し替え
+- Zustand のストア分割（現状は `familyStore` に集約）
+- d3-hierarchy 採用と個別ノードのドラッグ移動
+- モバイル下部タブの実ルートへの適用
+- フォントの self-host
+- Union の `period` / `dissolved` フィールドへの実書き込み
+- PNG 書き出しのオートフィット（現状は自然サイズ）
+
+---
+
+## ライセンス・連絡
+
+内部プロジェクト。ライセンスと連絡先は `src/data/legal/{terms,privacy}.json` を編集すると `/terms`・`/privacy` ページに反映されます。

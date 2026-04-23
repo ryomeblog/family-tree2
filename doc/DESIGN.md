@@ -1,8 +1,18 @@
 # ファミリーツリー２ ・ 設計書（SPEC）
 
 作成日: 2026年
+最終更新: 2026-04-24（本書＋`IMPLEMENTATION_PLAN.md` で現状反映）
 対象バージョン: v0.1（MVP）／ PWA
 対象読者: 開発者・デザイナー・プロダクトオーナー
+
+> **実装状況サマリ（2026-04-24）**
+> 本設計書は当初の仕様の正本ですが、実装の過程で **意図的に逸脱した箇所** があります。
+> 詳細は本書末尾の **付録 B・実装の現状と仕様からの逸脱** を参照。
+> 主な逸脱:
+> - Zustand は **3 ストア分割ではなく 1 ストアに集約**（`src/stores/familyStore.ts`）
+> - d3-hierarchy は不採用、**独自の世代ベースレイアウトエンジン**（`TreeEditorPage.tsx` 内 `layoutFamily()`）
+> - TipTap 本文は **JSON ではなく HTML 文字列**として保存
+> - 追加ルート: `/terms`・`/privacy`（JSON 駆動の法的文書）
 
 ---
 
@@ -611,3 +621,168 @@ family-tree-2/
 | Q9 | Lint / Format | ESLint v9（flat config）+ Prettier ／ ダブルクォート ／ 保存時フォーマット |
 | Q10 | Node | Node 24（`engines` 明示） |
 
+---
+
+## 付録 B・実装の現状と仕様からの逸脱（2026-04-24）
+
+本節は当初仕様（§1〜§6）に対して、実装で確定した現実を記録する。仕様側を将来修正するか、実装を仕様に寄せるかの判断材料。
+
+### B.1 ルーティングの追加・差異
+
+DESIGN.md §4.2 に追加・変更があったルート:
+
+| 追加 | 役割 |
+|---|---|
+| `/terms` | 利用規約（`src/data/legal/terms.json` 駆動） |
+| `/privacy` | プライバシーポリシー（`src/data/legal/privacy.json` 駆動） |
+| `/family/:fid/delete` | 家系削除（家系名入力確認） |
+| `/family/:fid/relate` | 関係追加モーダル |
+| `/family/:fid/photo/:pid` | 写真ライトボックス |
+| `/family/:fid/person/:pid/delete` | 人物削除確認 |
+| `/family/:fid/memory/:mid/delete` | 思い出削除確認 |
+| `/settings/delete-all` | 全データ初期化 |
+
+`/family/:fid/menu` は **未ルート化**。AppHeader の「家系名 ▾」クリックで **インプレース・ドロップダウン**（`src/modals/FamilyMenuDropdown.tsx`）として展開する実装に変更。
+
+### B.2 データモデルの差異
+
+#### B.2.1 Memory.body の型
+
+**仕様**: `body: RichTextJSON`（TipTap の JSON）
+**実装**: `body: string`（TipTap の **HTML** 文字列を保存）
+
+理由: TipTap の `editor.getHTML()` を直接保存することでシリアライズが単純化。`<p>`・`<strong>`・`<a>` などのタグをそのまま `dangerouslySetInnerHTML` で描画。プレーンテキストも同じフィールドに混在可能。
+
+影響: `.ftree2` ファイルの `family.json` に HTML 文字列が入る。バージョン `"1"` は HTML、将来の JSON 化時は `version: "2"` で分岐。
+
+#### B.2.2 Family 構造の差異
+
+仕様では `persons` `unions` `memories` が `Record`、`links` が配列。実装は次の通り:
+
+```ts
+interface Family {
+  people: Record<PersonId, Person>;       // ← 仕様の `persons` → `people`
+  unions: Union[];                         // ← 仕様は Record、実装は配列
+  links: ParentChildLink[];
+  memories: Record<MemoryId, Memory>;
+  // 仕様にない追加フィールド:
+  themeColor: string;
+  generations: number;                     // 集計値（UI 表示用）
+  lastUpdated: string;                     // 集計値（UI 表示用）
+  // 仕様の `meta: {...}` は未実装（外側の Zustand で `lastExportAt` を持つ）
+}
+
+interface Union {
+  id: UnionId;
+  partnerA: PersonId;
+  partnerB: PersonId;
+  // 仕様の kind/period/dissolved は未実装
+}
+
+interface Memory {
+  id: MemoryId;
+  title: string;
+  body: string;                  // HTML 文字列（上記参照）
+  periodLabel: string;            // 仕様の FuzzyDate period は未。人間可読テキストで保持
+  authorId: PersonId;            // 仕様の `author`
+  protagonistId?: PersonId;
+  viewers: PersonId[];
+  related: PersonId[];
+  tags: string[];
+  photos: number;                // 枚数カウント（UI 表示用）
+  photoIds?: PhotoId[];          // ← 仕様の `photos: PhotoId[]` に相当
+  year: string; era?: string;    // 表示用プレフィックス
+  locked?: boolean;              // UI 表示用
+}
+```
+
+将来的な仕様合わせの方向性:
+- `persons` ↔ `people` は呼称ゆれなので統一（実装側に合わせる or 仕様に合わせる）
+- Union の `period` / `dissolved` は相応の UI 追加時に再開
+
+### B.3 ストレージ戦略の差異
+
+**仕様** (§3.3)
+- `ft2.state.v1`（AppState、2 スロット A/B）
+- `ft2.family.<id>.v1`（個別家系）
+
+**実装**
+- `ft2.state.v1.a` / `ft2.state.v1.b`（Zustand `persist` → 独自の `localStoreAB` 経由、**家系はすべてここに包含**）
+- 個別家系キー（`ft2.family.<id>.v1`）は **未採用**
+
+Zustand の `persist` で `families: Record<fid, Family>` を丸ごと書き込む方が実装が簡潔で、家系サイズが 2MB を超える想定は v0.1 では考えない。将来的に大容量化したら分割する。
+
+### B.4 状態管理：1 ストア集約
+
+**仕様** (§4.1): `useFamily` / `useApp` / `useUI` の 3 ストア分割。
+
+**実装**: `src/stores/familyStore.ts` に集約。
+
+| 仕様ストア | 実装の格納先 |
+|---|---|
+| `useFamily` | `families` / `activeFamilyId` / `dirty` / `addPerson`, `patchPerson`, ... |
+| `useApp` | 同じ store 内の `reminderEnabled` / `reminderShownAt` / `theme` / `currentViewerPersonId` / `lastExportAt` / `persistGranted` / `storageEstimate` |
+| `useUI` | 同じ store 内の `toast` / `showToast()` / `clearToast()` |
+
+トレードオフ: 「1 ファイルで全部見える」反面、セレクタの粒度が粗くなり、不要な再レンダが発生しがち。v0.2 以降で分割するかは未定。
+
+### B.5 家系図レイアウトエンジン
+
+**仕様** (§1.4 / §4.2): d3-hierarchy + 自前エンジン。
+
+**実装**: **d3-hierarchy は未使用**。`src/pages/TreeEditorPage.tsx` 内の `layoutFamily()` が世代ベースの独自レイアウトを提供。
+
+アルゴリズム:
+1. 各人物に **世代番号** を割り当て（親リンクで `child ≥ parent+1`、配偶者は同世代に揃える、収束まで反復）
+2. 各世代ごとにグループ化（union ＝ 2 人、単独 ＝ 1 人）
+3. 各グループの **理想 x 座標** を親ユニットの中点の平均から算出
+4. 理想 x の昇順で左から配置、衝突時は右に押す（`COUPLE_GAP` で隣接ユニット間の最小間隔を確保）
+5. 配偶者両側に親 union があるケースでは、両親 union 中点間の距離に合わせて **SPOUSE_GAP を拡張**（親ユニットが衝突しない幅を自動確保）
+
+線描画:
+- 配偶者バー → 中点から下降 → 分岐バー（子の中心 x 範囲に跨る水平線）→ 各子へ垂直下降
+- 単独親の子（`parentId`）は親下辺中央から同じパターン
+- **両側に親 union がある子**は、両 union それぞれから独立に線が出る（DESIGN.md 要求の「中点から下ろす」原則を各 union で満たす）
+
+未実装の高度なケース:
+- ノードの個別ドラッグ移動
+- ノード同士の交差最小化（Sugiyama の厳密解）
+- 「両側共に grandparent がある × 横同士にも結婚相手」のように subtree が絡むケース（1 側のみ正しく表示される）
+
+### B.6 ワイヤーフレーム（`src/wireframes/`）の削除
+
+DESIGN.md §6 と §7 にあったワイヤーフレームディレクトリは **削除済み**。共通プリミティブは `src/components/ui.tsx` に集約（`BarePage` / `Frame` / `Hanko` / `SketchBtn` / `Field` など）。旧 `primitives.tsx` は同ファイルに改名・移動。
+
+### B.7 追加された機能（仕様に無かったもの）
+
+- **`/terms`・`/privacy` ページ**（JSON 駆動、`version` / `effectiveDate` / `lastUpdatedAt` 付き）
+- **ケバブメニュー**（Dashboard の家系カード右下、「開く」「書き出し」「削除」）
+- **インプレース家系メニュー**（AppHeader の「家系名 ▾」クリック展開）
+- **`YearPicker`**（生年選択：現在から 20 年、スクロールで +20 年）
+- **`SearchPopover`**（人物・思い出横断検索。TreeEditor・Memories 両方で使用）
+- **Playwright による視覚検証スクリプト**（`scripts/*.mjs`）
+- **`.mcp.json`**（Playwright MCP 設定）
+
+### B.8 PWA
+
+仕様 §5 通り実装済み:
+- `vite.config.ts` に `VitePWA({ strategies: "generateSW" })`
+- `public/icons/icon-192.svg` / `icon-512.svg` / `maskable-512.svg`
+- `src/pwa/registerSW.ts` — `virtual:pwa-register` を動的 import、`onNeedRefresh` で再読込トースト
+- `src/pwa/persist.ts` — `navigator.storage.persist()` / `.estimate()` — Settings に実測値表示
+- `src/pwa/install.ts` — `beforeinstallprompt` を捕捉して Settings のボタンから呼び出し
+- `src/pwa/reminder.ts` — 起動時に月経過＋未書き出しなら WARN トースト
+
+### B.9 配信
+
+GitHub Actions（`.github/workflows/deploy.yml`）で `main` push → Pages デプロイ。Vite の `base` は `"/family-tree2/"`。
+
+---
+
+## 付録 C・運用ガイド（エージェント向け）
+
+- **Claude Code 向け**: `CLAUDE.md`
+- **一般コーディングエージェント向け**: `AGENTS.md`
+- **プロジェクト README**: `README.md`
+
+エージェントが作業するとき、仕様書が先、実装観察が次、と優先順位を決める。本書の数値が実装と食い違う場合、まず本書の B 節を確認し、それでも不明なら実装側のソースを Read / Grep する。
