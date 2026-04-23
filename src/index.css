@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "./styles/tokens.css";
+
+/*
+ * Scroll ownership — there is EXACTLY ONE vertical scrollbar at any
+ * time.
+ *
+ *   html / body / #root       all fixed 100% / overflow: hidden.
+ *                             Never scroll themselves.
+ *   BarePage scroll="fixed"   owns 100vh, overflow hidden; scrolling
+ *                             (if any) lives inside its children's
+ *                             own `overflow:auto` panes.
+ *   BarePage scroll="flow"    owns 100vh, overflow-y:auto — the one
+ *                             scrollbar for document-flow pages.
+ */
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  background: #fffef8;
+  font-family: "Kaisei Decol", serif;
+  color: #1a1915;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}

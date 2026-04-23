@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>ファミリーツリー２ — ワイヤーフレーム</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;500;700&family=Klee+One:wght@400;600&display=swap" rel="stylesheet" />
+
+  <style>
+    html, body { margin: 0; padding: 0; background: #E8E2D0; font-family: 'Kaisei Decol', serif; color: #1A1915; }
+    * { box-sizing: border-box; }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!--
+    The source of truth is under src/ as a proper Vite + React + TS project.
+    For this in-browser preview we fetch those same .tsx files and transpile
+    them with Babel, which handles TS types, JSX, and ES module syntax via
+    `transform-modules-commonjs`. A tiny CommonJS shim resolves relative
+    imports against a virtual module registry.
+  -->
+  <script>
+    // Paths are repo-root-absolute. Serve the repo root (e.g. via `npm run dev`
+    // or any static file server) and open this file at /doc/Wireframes.html.
+    const FILES = [
+      "/src/wireframes/primitives.tsx",
+      "/src/wireframes/Wire01Landing.tsx",
+      "/src/wireframes/Wire02Dashboard.tsx",
+      "/src/wireframes/Wire03TreeEditor.tsx",
+      "/src/wireframes/Wire04PersonDetail.tsx",
+      "/src/wireframes/Wire05AddPerson.tsx",
+      "/src/wireframes/Wire06Memories.tsx",
+      "/src/wireframes/Wire07NewFamily.tsx",
+      "/src/wireframes/Wire08OpenFamily.tsx",
+      "/src/wireframes/Wire09Settings.tsx",
+      "/src/wireframes/Wire10Import.tsx",
+      "/src/wireframes/Wire11ImportError.tsx",
+      "/src/wireframes/Wire12FamilyMenu.tsx",
+      "/src/wireframes/Wire13RelationAdd.tsx",
+      "/src/wireframes/Wire14PhotoLightbox.tsx",
+      "/src/wireframes/Wire15MemoryEditor.tsx",
+      "/src/wireframes/Wire16MemoryDetail.tsx",
+      "/src/wireframes/Wire17PWA.tsx",
+      "/src/wireframes/Wire18Empty.tsx",
+      "/src/wireframes/Wire19Mobile.tsx",
+      "/src/wireframes/Wire20Delete.tsx",
+      "/src/wireframes/Wire21Quota.tsx",
+      "/src/wireframes/Wire22EditPerson.tsx",
+      "/src/wireframes/index.ts",
+      "/src/App.tsx",
+    ];
+
+    const MODULES = {};   // moduleId -> exports
+    const SOURCES = {};   // moduleId -> raw source
+
+    // Inject React / ReactDOM as pseudo-modules. Babel's CJS transform calls
+    // `require("react")` and then accesses `.default` or named exports.
+    const reactModule = Object.assign({}, window.React, { default: window.React, __esModule: true });
+    const reactDomModule = Object.assign({}, window.ReactDOM, { default: window.ReactDOM, __esModule: true });
+    MODULES["react"] = reactModule;
+    MODULES["react-dom/client"] = reactDomModule;
+    MODULES["react-dom"] = reactDomModule;
+
+    function resolvePath(from, rel) {
+      if (!rel.startsWith(".")) return rel;
+      const parts = from.split("/").slice(0, -1);
+      for (const seg of rel.split("/")) {
+        if (seg === "" || seg === ".") continue;
+        if (seg === "..") parts.pop();
+        else parts.push(seg);
+      }
+      const base = parts.join("/");
+      const candidates = [base, base + ".tsx", base + ".ts", base + "/index.ts", base + "/index.tsx"];
+      for (const c of candidates) {
+        if (SOURCES[c] != null || MODULES[c] != null) return c;
+      }
+      return base;
+    }
+
+    function compile(id) {
+      if (MODULES[id]) return MODULES[id];
+      const src = SOURCES[id];
+      if (src == null) throw new Error("Module not found: " + id);
+
+      const { code } = Babel.transform(src, {
+        filename: id,
+        presets: [
+          ["typescript", { allExtensions: true, isTSX: true, onlyRemoveTypeImports: false }],
+          ["react", { runtime: "classic" }],
+        ],
+        plugins: [
+          ["transform-modules-commonjs", { strictMode: false }],
+        ],
+      });
+
+      const module = { exports: {} };
+      MODULES[id] = module.exports;
+
+      // `require` resolves relative paths against this module.
+      const req = (p) => {
+        const resolved = resolvePath(id, p);
+        return compile(resolved);
+      };
+
+      try {
+        const fn = new Function("require", "module", "exports", code);
+        fn(req, module, module.exports);
+      } catch (e) {
+        console.error("Error executing", id, "\n---\n" + code.slice(0, 600) + "\n---", e);
+        throw e;
+      }
+
+      // If module.exports was reassigned, use that; otherwise keep the live exports object.
+      MODULES[id] = module.exports;
+      return module.exports;
+    }
+
+    async function boot() {
+      await Promise.all(
+        FILES.map(async (f) => {
+          const res = await fetch(f);
+          if (!res.ok) throw new Error("Failed to load " + f);
+          SOURCES[f] = await res.text();
+        })
+      );
+      const App = compile("/src/App.tsx").default;
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(React.createElement(App));
+    }
+
+    boot().catch((e) => {
+      console.error(e);
+      document.getElementById("root").innerHTML =
+        '<pre style="padding:24px;color:#C0392B;font-family:monospace;white-space:pre-wrap;line-height:1.5">' +
+        String(e && e.stack || e) +
+        "</pre>";
+    });
+  </script>
+</body>
+</html>

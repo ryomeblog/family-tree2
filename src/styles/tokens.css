@@ -1,0 +1,21 @@
+/*
+ * Design tokens. `primitives.tsx` uses the `C` and `F` TS constants,
+ * but these variables make the same palette reachable from any
+ * stylesheet or inline style via `var(--…)`.
+ */
+:root {
+  --bg-paper: #fffef8;
+  --bg-tatami: #e8e2d0;
+  --ink-sumi: #1a1915;
+  --ink-sub: #6b6456;
+  --ink-pale: #8b8574;
+  --line: #d4cebe;
+  --accent-shu: #c0392b;
+  --accent-shu-soft: #e8b8b2;
+  --note-yellow: #fdf6c8;
+  --note-edge: #e8dfa0;
+  --seal: #a52a1e;
+
+  --font-mincho: "Kaisei Decol", "Yu Mincho", serif;
+  --font-hand: "Klee One", "Hiragino Maru Gothic ProN", cursive;
+}

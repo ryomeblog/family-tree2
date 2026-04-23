@@ -1,0 +1,24 @@
+// Barrel export — import all wireframes from one place.
+export { WireLanding } from "./Wire01Landing";
+export { WireDashboard } from "./Wire02Dashboard";
+export { WireTreeEditor } from "./Wire03TreeEditor";
+export { WirePersonDetail } from "./Wire04PersonDetail";
+export { WireAddPerson } from "./Wire05AddPerson";
+export { WireMemories } from "./Wire06Memories";
+export { WireNewFamily } from "./Wire07NewFamily";
+export { WireOpenFamily } from "./Wire08OpenFamily";
+export { WireSettings } from "./Wire09Settings";
+export { WireImport } from "./Wire10Import";
+export { WireImportError } from "./Wire11ImportError";
+export { WireFamilyMenu } from "./Wire12FamilyMenu";
+export { WireRelationAdd } from "./Wire13RelationAdd";
+export { WirePhotoLightbox } from "./Wire14PhotoLightbox";
+export { WireMemoryEditor } from "./Wire15MemoryEditor";
+export { WireMemoryDetail } from "./Wire16MemoryDetail";
+export { WirePWA } from "./Wire17PWA";
+export { WireEmpty } from "./Wire18Empty";
+export { WireMobile } from "./Wire19Mobile";
+export { WireDelete } from "./Wire20Delete";
+export { WireQuota } from "./Wire21Quota";
+export { WireEdit } from "./Wire22EditPerson";
+export * from "./primitives";
