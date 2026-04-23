@@ -270,7 +270,7 @@ export default function PersonForm({
   const [kanaSurname, setKanaSurname] = useState(existing?.kanaSurname ?? "");
   const [kanaGiven, setKanaGiven] = useState(existing?.kanaGiven ?? "");
   const [maiden, setMaiden] = useState(existing?.maidenName ?? "");
-  const [gender, setGender] = useState<Gender>(existing?.gender ?? "f");
+  const [gender, setGender] = useState<Gender>(existing?.gender ?? "m");
   const [place, setPlace] = useState(existing?.birthPlace ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
   const [birth, setBirth] = useState(fuzzyToParts(existing?.birth));
@@ -430,9 +430,29 @@ export default function PersonForm({
 
           <Col gap={14} style={{ flex: 1, minWidth: 320 }}>
             <Row gap={12} wrap align="flex-start">
-              <Field label="姓" value={surname} onChange={setSurname} required width={160} />
-              <Field label="名" value={given} onChange={setGiven} required width={160} />
-              <Field label="続柄" value={role} onChange={setRole} width={140} />
+              <Field
+                label="姓"
+                value={surname}
+                onChange={setSurname}
+                placeholder="山田"
+                required
+                width={160}
+              />
+              <Field
+                label="名"
+                value={given}
+                onChange={setGiven}
+                placeholder="太郎"
+                required
+                width={160}
+              />
+              <Field
+                label="続柄"
+                value={role}
+                onChange={setRole}
+                placeholder="例: 私 / 父 / 祖母"
+                width={180}
+              />
             </Row>
             <Row gap={12} wrap align="flex-start">
               <Field

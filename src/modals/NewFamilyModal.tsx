@@ -15,6 +15,7 @@ import {
   F,
 } from "../components/ui";
 import { useFamilyStore, Family, Person } from "../stores/familyStore";
+import { YearPicker } from "../components/YearPicker";
 
 type ThemeKey = "picture-book" | "scroll" | "modern";
 const THEMES: { k: ThemeKey; label: string; color: string }[] = [
@@ -42,12 +43,12 @@ export default function NewFamilyModal() {
   const addFamily = useFamilyStore((s) => s.addFamily);
   const showToast = useFamilyStore((s) => s.showToast);
 
-  const [familyName, setFamilyName] = useState("山田家");
-  const [surname, setSurname] = useState("山田");
-  const [given, setGiven] = useState("翔");
-  const [relation, setRelation] = useState("私");
+  const [familyName, setFamilyName] = useState("");
+  const [surname, setSurname] = useState("");
+  const [given, setGiven] = useState("");
+  const [relation, setRelation] = useState("");
   const [gender, setGender] = useState<Gender>("m");
-  const [birthLabel, setBirthLabel] = useState("1992年");
+  const [birthYear, setBirthYear] = useState<number | undefined>(undefined);
   const [birthPlace, setBirthPlace] = useState("");
   const [theme, setTheme] = useState<ThemeKey>("picture-book");
 
@@ -69,9 +70,10 @@ export default function NewFamilyModal() {
       surname: surname.trim() || "—",
       given: given.trim() || "—",
       gender,
-      birth: /^\d/.test(birthLabel)
-        ? { kind: "year", y: parseInt(birthLabel, 10) }
-        : { kind: "unknown" },
+      birth:
+        birthYear !== undefined
+          ? { kind: "year", y: birthYear }
+          : { kind: "unknown" },
       birthPlace: birthPlace || undefined,
       role: relation || undefined,
     };
@@ -153,7 +155,7 @@ export default function NewFamilyModal() {
                 value={familyName}
                 onChange={setFamilyName}
                 required
-                hint="例：山田家、鈴木家・母方"
+                placeholder="山田家、鈴木家・母方"
               />
 
               <div
@@ -172,9 +174,29 @@ export default function NewFamilyModal() {
                 </Hand>
 
                 <Row gap={12} wrap align="flex-start">
-                  <Field label="姓" value={surname} onChange={setSurname} required width={140} />
-                  <Field label="名" value={given} onChange={setGiven} required width={140} />
-                  <Field label="続柄（例: 私）" value={relation} onChange={setRelation} width={140} />
+                  <Field
+                    label="姓"
+                    value={surname}
+                    onChange={setSurname}
+                    required
+                    placeholder="山田"
+                    width={140}
+                  />
+                  <Field
+                    label="名"
+                    value={given}
+                    onChange={setGiven}
+                    required
+                    placeholder="翔"
+                    width={140}
+                  />
+                  <Field
+                    label="続柄"
+                    value={relation}
+                    onChange={setRelation}
+                    placeholder="私"
+                    width={140}
+                  />
                 </Row>
                 <Row gap={12} wrap align="flex-start" style={{ marginTop: 12 }}>
                   <div style={{ width: 240 }}>
@@ -210,13 +232,21 @@ export default function NewFamilyModal() {
                       ))}
                     </Row>
                   </div>
-                  <Field
-                    label="生年（西暦 or 和暦）"
-                    value={birthLabel}
-                    onChange={setBirthLabel}
-                    placeholder="1992年 / 平成4年"
-                    width={200}
-                  />
+                  <div style={{ width: 220 }}>
+                    <Hand
+                      size={12}
+                      color={C.sub}
+                      bold
+                      style={{ display: "block", marginBottom: 6 }}
+                    >
+                      生年（西暦 / 和暦）
+                    </Hand>
+                    <YearPicker
+                      value={birthYear}
+                      onChange={setBirthYear}
+                      placeholder="年を選ぶ"
+                    />
+                  </div>
                   <Field
                     label="出生地"
                     value={birthPlace}

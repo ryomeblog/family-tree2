@@ -411,6 +411,8 @@ export default function TreeEditorPage() {
   const layout = useMemo(() => (family ? layoutFamily(family) : null), [family]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const printRef = useRef<HTMLDivElement | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const onSave = () => {
     // Persistence happens automatically via the Zustand persist
@@ -419,12 +421,23 @@ export default function TreeEditorPage() {
     store.showToast("ok", "保存しました");
   };
   const onExport = async () => {
-    if (!canvasRef.current) return;
+    // Mount a print-only surface (no toolbar/minimap/zoom), let the
+    // browser lay it out, capture it, then unmount. The surface is
+    // rendered on-screen but clipped behind the existing chrome via
+    // z-index + overflow hidden.
+    if (!layout) return;
+    setExporting(true);
+    // Two rAFs so the newly-mounted element is painted before capture.
+    await new Promise((r) => requestAnimationFrame(r));
+    await new Promise((r) => requestAnimationFrame(r));
     try {
-      const dataUrl = await toPng(canvasRef.current, {
+      if (!printRef.current) throw new Error("print surface missing");
+      const dataUrl = await toPng(printRef.current, {
         cacheBust: true,
         backgroundColor: "#FFFEF8",
         pixelRatio: 2,
+        width: layout.width,
+        height: layout.height,
       });
       const a = document.createElement("a");
       a.href = dataUrl;
@@ -434,6 +447,8 @@ export default function TreeEditorPage() {
     } catch (e) {
       console.error(e);
       store.showToast("err", "書き出しに失敗しました");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -801,9 +816,95 @@ export default function TreeEditorPage() {
           />
         )}
       </div>
+
+      {/* Print surface — mounted briefly while `exporting === true`.
+          Rendered on-screen (so the browser lays it out for capture)
+          inside a size-0 overflow container so it doesn't disturb the
+          UI. */}
+      {exporting && layout && (
+        <div
+          aria-hidden
+          style={{
+            position: "fixed",
+            left: 0,
+            top: 0,
+            width: 0,
+            height: 0,
+            overflow: "visible",
+            pointerEvents: "none",
+            zIndex: -1,
+          }}
+        >
+          <div
+            ref={printRef}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: layout.width,
+              height: layout.height,
+              background: "#FFFEF8",
+            }}
+          >
+            <PrintTree layout={layout} />
+          </div>
+        </div>
+      )}
     </BarePage>
   );
 }
+
+const PrintTree: React.FC<{
+  layout: { nodes: Node[]; edges: TreeEdge[]; width: number; height: number };
+}> = ({ layout }) => (
+  <div
+    style={{
+      position: "relative",
+      width: layout.width,
+      height: layout.height,
+      background: "#FFFEF8",
+    }}
+  >
+    <EdgesLayer layout={layout} />
+    {layout.nodes.map((n) => (
+      <div
+        key={n.id}
+        style={{
+          position: "absolute",
+          left: n.x,
+          top: n.y,
+          width: NODE_W,
+          height: NODE_H,
+          background: C.paper,
+          border: `1px solid ${C.sumi}`,
+          borderRadius: 4,
+          boxShadow: `2px 2px 0 ${C.sumi}`,
+          padding: "6px 10px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 2,
+          boxSizing: "border-box",
+          fontFamily: F.mincho,
+        }}
+      >
+        {n.person.role && (
+          <span style={{ fontFamily: F.hand, fontSize: 10, color: C.pale }}>
+            {n.person.role}
+          </span>
+        )}
+        <span style={{ fontSize: 15, fontWeight: 500 }}>
+          {formatPerson(n.person)}
+        </span>
+        <span style={{ fontFamily: F.hand, fontSize: 10, color: C.sub }}>
+          {formatBirthYear(n.person)}
+          {n.person.deceased ? "  ✿" : ""}
+        </span>
+      </div>
+    ))}
+  </div>
+);
 
 const EdgesLayer: React.FC<{
   layout: { nodes: Node[]; edges: TreeEdge[]; width: number; height: number };
