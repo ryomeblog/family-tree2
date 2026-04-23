@@ -1,0 +1,11 @@
+import { chromium } from "playwright";
+const BASE = "http://127.0.0.1:5173/family-tree2/";
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+const page = await ctx.newPage();
+await page.goto(BASE, { waitUntil: "networkidle" });
+await page.evaluate(() => localStorage.clear());
+await page.goto(`${BASE}#/family/yamada/tree`, { waitUntil: "networkidle" });
+await page.waitForTimeout(800);
+await page.screenshot({ path: "screenshots/yamada-regression.png" });
+await browser.close();

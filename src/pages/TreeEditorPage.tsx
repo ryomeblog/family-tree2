@@ -35,10 +35,20 @@ const TOOLS: { k: ToolMode; i: string; t: string }[] = [
   { k: "search", i: "⌕", t: "検索" },
 ];
 
-// ── Layout engine: subtree-based. Each person's subtree is sized
-// bottom-up, and parents are centered above their children's subtree
-// mid-x. Spacing between siblings therefore grows with the descendants
-// they carry — deeper subtrees push out the top-level gap more.
+// ── Layout engine: generation-based.
+//
+// 1. Assign each person a generation number (gen), derived by walking
+//    parent-child links and aligning spouses to the same gen.
+// 2. Group each gen into "groups" — a union (two partners adjacent)
+//    or a single person. For each group compute an ideal midX as the
+//    average of its parents' midpoints at gen-1 (empty if roots).
+// 3. Place groups left-to-right in ideal-x order, pushing later groups
+//    right when they would collide.
+// 4. After placement, for every union that has a parent at gen-1 on
+//    EITHER side, emit the parent→child edge using the previously
+//    placed coordinates. Both sides are drawn independently, so shared
+//    descendants (A×B where A has grandparents on one side and B on
+//    the other) get lines from BOTH parent unions.
 // ────────────────────────────────────────────────────────────────────
 interface Node {
   id: string;
@@ -67,201 +77,317 @@ const NODE_W = 144;
 const NODE_H = 76;
 const SPOUSE_GAP = 28;
 const SIBLING_GAP = 48;
+const COUPLE_GAP = 64; // horizontal gap between different couples at same gen
 const GEN_GAP = 170;
 const ORIGIN_Y = 60;
 const MARGIN_X = 60;
 
 type FamilyArg = ReturnType<typeof useFamilyStore.getState>["families"][string];
 
-interface Entry {
-  person: Person;
-  spouse?: Person;
-  unionId?: string;
-  children: Entry[];
-}
-
 function layoutFamily(fam: FamilyArg) {
-  const usedUnions = new Set<string>();
-  const placed = new Set<string>();
+  // ── Step 1: compute generation per person ────────────────────────
+  const gen = new Map<string, number>();
+  const childIds = new Set(fam.links.map((l) => l.childId));
+  for (const p of Object.values(fam.people)) {
+    if (!childIds.has(p.id)) gen.set(p.id, 0);
+  }
+  // Iteratively propagate: child's gen ≥ max(parents) + 1, and
+  // spouses share the same gen (take the max of both).
+  let changed = true;
+  let guard = 0;
+  while (changed && guard++ < 200) {
+    changed = false;
+    for (const link of fam.links) {
+      let parentGen: number | undefined;
+      if (link.parentUnion) {
+        const u = fam.unions.find((x) => x.id === link.parentUnion);
+        if (u) {
+          const gA = gen.get(u.partnerA);
+          const gB = gen.get(u.partnerB);
+          const candidates = [gA, gB].filter(
+            (x): x is number => x !== undefined,
+          );
+          if (candidates.length > 0) parentGen = Math.max(...candidates);
+        }
+      } else if (link.parentId) {
+        parentGen = gen.get(link.parentId);
+      }
+      if (parentGen !== undefined) {
+        const expected = parentGen + 1;
+        const cur = gen.get(link.childId);
+        if (cur === undefined || cur < expected) {
+          gen.set(link.childId, expected);
+          changed = true;
+        }
+      }
+    }
+    for (const u of fam.unions) {
+      const gA = gen.get(u.partnerA);
+      const gB = gen.get(u.partnerB);
+      if (gA !== undefined && gB !== undefined && gA !== gB) {
+        const m = Math.max(gA, gB);
+        if (gA !== m) {
+          gen.set(u.partnerA, m);
+          changed = true;
+        }
+        if (gB !== m) {
+          gen.set(u.partnerB, m);
+          changed = true;
+        }
+      } else if (gA !== undefined && gB === undefined) {
+        gen.set(u.partnerB, gA);
+        changed = true;
+      } else if (gB !== undefined && gA === undefined) {
+        gen.set(u.partnerA, gB);
+        changed = true;
+      }
+    }
+  }
+  for (const p of Object.values(fam.people)) {
+    if (!gen.has(p.id)) gen.set(p.id, 0);
+  }
+  const maxGen = Math.max(0, ...Array.from(gen.values()));
 
-  function buildEntry(personId: string): Entry | null {
-    const person = fam.people[personId];
-    if (!person || placed.has(person.id)) return null;
-    placed.add(person.id);
+  // ── Step 2: helpers ──────────────────────────────────────────────
+  // For each person, their union (if any) and spouse.
+  const unionByPerson = new Map<string, { unionId: string; spouseId: string }>();
+  for (const u of fam.unions) {
+    unionByPerson.set(u.partnerA, { unionId: u.id, spouseId: u.partnerB });
+    unionByPerson.set(u.partnerB, { unionId: u.id, spouseId: u.partnerA });
+  }
 
-    // Pick the first unused union that this person is a partner in.
-    const union = fam.unions.find(
-      (u) =>
-        !usedUnions.has(u.id) &&
-        (u.partnerA === person.id || u.partnerB === person.id),
+  // Parent union/person for each person (if any).
+  const parentOfPerson = new Map<
+    string,
+    { kind: "union"; unionId: string } | { kind: "single"; personId: string }
+  >();
+  for (const link of fam.links) {
+    if (link.parentUnion) {
+      parentOfPerson.set(link.childId, {
+        kind: "union",
+        unionId: link.parentUnion,
+      });
+    } else if (link.parentId) {
+      parentOfPerson.set(link.childId, {
+        kind: "single",
+        personId: link.parentId,
+      });
+    }
+  }
+
+  // ── Step 3: place persons by generation ─────────────────────────
+  const personX = new Map<string, number>();
+  // Key to lookup group mid: "u:<unionId>" for unions, "p:<personId>" for
+  // singles. midX is the "parent's midpoint" that children align to.
+  const groupMidX = new Map<string, number>();
+
+  // Helper: return the parent-midpoint x for a given person, using
+  // already-placed coords at higher gens.
+  const parentMidX = (pid: string): number | undefined => {
+    const parent = parentOfPerson.get(pid);
+    if (!parent) return undefined;
+    if (parent.kind === "union") {
+      return groupMidX.get("u:" + parent.unionId);
+    }
+    return groupMidX.get("p:" + parent.personId);
+  };
+
+  for (let g = 0; g <= maxGen; g++) {
+    // Collect persons at this gen.
+    const gPersons = Object.values(fam.people).filter(
+      (p) => gen.get(p.id) === g,
     );
 
-    let spouse: Person | undefined;
-    let unionId: string | undefined;
-    const children: Entry[] = [];
-
-    if (union) {
-      usedUnions.add(union.id);
-      unionId = union.id;
-      const spouseId =
-        union.partnerA === person.id ? union.partnerB : union.partnerA;
-      const sp = fam.people[spouseId];
-      if (sp && !placed.has(sp.id)) {
-        spouse = sp;
-        placed.add(sp.id);
-      } else if (sp) {
-        // spouse already placed elsewhere; treat as leaf partner here
-        spouse = sp;
-      }
-      const childIds = fam.links
-        .filter((l) => l.parentUnion === union.id)
-        .map((l) => l.childId);
-      for (const cid of childIds) {
-        const ce = buildEntry(cid);
-        if (ce) children.push(ce);
-      }
+    // Group into union groups (2 persons) and singles.
+    const used = new Set<string>();
+    interface Group {
+      ids: [string] | [string, string]; // [a] or [a, b] where a is left
+      idealMid?: number;
+      key: string; // for groupMidX
+      unionId?: string;
     }
+    const groups: Group[] = [];
 
-    // Also pick up direct parent links without a union (single-parent
-    // relationships created via "parentId" rather than "parentUnion").
-    const directChildIds = fam.links
-      .filter((l) => l.parentId === person.id && !l.parentUnion)
-      .map((l) => l.childId);
-    for (const cid of directChildIds) {
-      const ce = buildEntry(cid);
-      if (ce) children.push(ce);
-    }
-
-    return { person, spouse, unionId, children };
-  }
-
-  const selfWidth = (e: Entry) =>
-    e.spouse ? NODE_W * 2 + SPOUSE_GAP : NODE_W;
-
-  function computeWidth(e: Entry): number {
-    const sw = selfWidth(e);
-    if (e.children.length === 0) return sw;
-    const cws = e.children.map(computeWidth);
-    const total =
-      cws.reduce((a, b) => a + b, 0) + SIBLING_GAP * (cws.length - 1);
-    return Math.max(sw, total);
-  }
-
-  const nodes: Node[] = [];
-  const edges: TreeEdge[] = [];
-
-  function place(e: Entry, startX: number, y: number): void {
-    const width = computeWidth(e);
-    const sw = selfWidth(e);
-    const center = startX + width / 2;
-
-    if (e.children.length > 0) {
-      const cws = e.children.map(computeWidth);
-      const childTotal =
-        cws.reduce((a, b) => a + b, 0) + SIBLING_GAP * (cws.length - 1);
-      let cursor = center - childTotal / 2;
-      e.children.forEach((c, i) => {
-        place(c, cursor, y + GEN_GAP);
-        cursor += cws[i] + SIBLING_GAP;
-      });
-      if (e.unionId && e.spouse) {
-        edges.push({
-          type: "union",
-          unionId: e.unionId,
-          aId: e.person.id,
-          bId: e.spouse.id,
-          childIds: e.children.map((c) => c.person.id),
+    for (const p of gPersons) {
+      if (used.has(p.id)) continue;
+      const u = unionByPerson.get(p.id);
+      if (u && !used.has(u.spouseId) && gen.get(u.spouseId) === g) {
+        used.add(p.id);
+        used.add(u.spouseId);
+        // Decide left/right order by preferred x of each partner.
+        const midP = parentMidX(p.id);
+        const midS = parentMidX(u.spouseId);
+        let leftId = p.id;
+        let rightId = u.spouseId;
+        if (midP !== undefined && midS !== undefined) {
+          if (midP > midS) {
+            leftId = u.spouseId;
+            rightId = p.id;
+          }
+        } else if (midS !== undefined && midP === undefined) {
+          leftId = u.spouseId;
+          rightId = p.id;
+        }
+        const midLeft = parentMidX(leftId);
+        const midRight = parentMidX(rightId);
+        let ideal: number | undefined;
+        if (midLeft !== undefined && midRight !== undefined) {
+          ideal = (midLeft + midRight) / 2;
+        } else if (midLeft !== undefined) {
+          ideal = midLeft + (NODE_W + SPOUSE_GAP) / 2;
+        } else if (midRight !== undefined) {
+          ideal = midRight - (NODE_W + SPOUSE_GAP) / 2;
+        }
+        groups.push({
+          ids: [leftId, rightId],
+          idealMid: ideal,
+          key: "u:" + u.unionId,
+          unionId: u.unionId,
         });
       } else {
-        edges.push({
-          type: "single",
-          parentId: e.person.id,
-          childIds: e.children.map((c) => c.person.id),
+        used.add(p.id);
+        const mid = parentMidX(p.id);
+        groups.push({
+          ids: [p.id],
+          idealMid: mid,
+          key: "p:" + p.id,
         });
       }
-    } else if (e.unionId && e.spouse) {
-      edges.push({
-        type: "union",
-        unionId: e.unionId,
-        aId: e.person.id,
-        bId: e.spouse.id,
-        childIds: [],
-      });
     }
 
-    const selfX = center - sw / 2;
-    nodes.push({ id: e.person.id, person: e.person, x: selfX, y });
-    if (e.spouse) {
-      nodes.push({
-        id: e.spouse.id,
-        person: e.spouse,
-        x: selfX + NODE_W + SPOUSE_GAP,
-        y,
-      });
+    // Group width: for a union try to honor parent midpoint spacing.
+    const groupWidth = (g: Group): number => {
+      if (g.ids.length === 1) return NODE_W;
+      // Couple. If both partners have parent midpoints, try to space the
+      // partners such that each sits exactly under their parent mid.
+      const mA = parentMidX(g.ids[0]);
+      const mB = parentMidX(g.ids[1]);
+      let gap = SPOUSE_GAP;
+      if (mA !== undefined && mB !== undefined) {
+        gap = Math.max(SPOUSE_GAP, mB - mA - NODE_W);
+      }
+      return NODE_W * 2 + gap;
+    };
+
+    // Sort by idealMid (undefined last) to preserve left-right order.
+    groups.sort((a, b) => {
+      if (a.idealMid === undefined && b.idealMid === undefined) return 0;
+      if (a.idealMid === undefined) return 1;
+      if (b.idealMid === undefined) return -1;
+      return a.idealMid - b.idealMid;
+    });
+
+    // Place left to right, respecting ideal but enforcing no overlap.
+    let cursor = MARGIN_X;
+    for (const grp of groups) {
+      const w = groupWidth(grp);
+      let midX: number;
+      if (grp.idealMid !== undefined) {
+        midX = Math.max(grp.idealMid, cursor + w / 2);
+      } else {
+        midX = cursor + w / 2;
+      }
+      const leftX = midX - w / 2;
+
+      if (grp.ids.length === 1) {
+        personX.set(grp.ids[0], leftX);
+        groupMidX.set(grp.key, midX);
+      } else {
+        // Preserve each partner's ideal x if possible; otherwise use
+        // standard spouse gap centered on midX.
+        const mA = parentMidX(grp.ids[0]);
+        const mB = parentMidX(grp.ids[1]);
+        if (
+          mA !== undefined &&
+          mB !== undefined &&
+          mB - mA >= NODE_W + SPOUSE_GAP
+        ) {
+          // Enough room to align partners under their parent midpoints.
+          personX.set(grp.ids[0], mA - NODE_W / 2);
+          personX.set(grp.ids[1], mB - NODE_W / 2);
+          // Shift if partners would overlap previous group.
+          const aX = mA - NODE_W / 2;
+          if (aX < cursor) {
+            const shift = cursor - aX;
+            personX.set(grp.ids[0], aX + shift);
+            personX.set(grp.ids[1], mB - NODE_W / 2 + shift);
+          }
+          const finalAx = personX.get(grp.ids[0])!;
+          const finalBx = personX.get(grp.ids[1])!;
+          const unionCenter = (finalAx + NODE_W + finalBx) / 2;
+          groupMidX.set(grp.key, unionCenter);
+        } else {
+          // Default: partners adjacent with SPOUSE_GAP, centered on midX.
+          personX.set(grp.ids[0], leftX);
+          personX.set(grp.ids[1], leftX + NODE_W + SPOUSE_GAP);
+          groupMidX.set(grp.key, midX);
+        }
+      }
+
+      const actualRight =
+        grp.ids.length === 1
+          ? personX.get(grp.ids[0])! + NODE_W
+          : personX.get(grp.ids[1])! + NODE_W;
+      cursor = actualRight + COUPLE_GAP;
     }
   }
 
-  // Roots = people not referenced as childId in any link — BUT ALSO
-  // we must exclude people whose spouse IS a child of someone. If we
-  // let such a person be a root, they would claim the union and yank
-  // the spouse away from the spouse's true ancestor subtree, leaving
-  // the real grandparents with an empty children list (rendering as a
-  // detached couple).
-  const childIds = new Set(fam.links.map((l) => l.childId));
-  const spousesOf = (pid: string): string[] =>
-    fam.unions
-      .filter((u) => u.partnerA === pid || u.partnerB === pid)
-      .map((u) => (u.partnerA === pid ? u.partnerB : u.partnerA));
-  const isTopAncestor = (pid: string): boolean => {
-    if (childIds.has(pid)) return false;
-    for (const sp of spousesOf(pid)) if (childIds.has(sp)) return false;
-    return true;
-  };
-  const allPersons = Object.values(fam.people);
-  const rootEntries: Entry[] = [];
-  for (const p of allPersons) {
-    if (!isTopAncestor(p.id)) continue;
-    if (placed.has(p.id)) continue;
-    const e = buildEntry(p.id);
-    if (e) rootEntries.push(e);
-  }
-  // Second pass — people with no parents but with spouses-that-do.
-  // They weren't claimed by their spouse's ancestor subtree (e.g. both
-  // sides have grandparents) so they need to appear somewhere. Treat
-  // them as roots now.
-  for (const p of allPersons) {
-    if (placed.has(p.id)) continue;
-    if (childIds.has(p.id)) continue;
-    const e = buildEntry(p.id);
-    if (e) rootEntries.push(e);
-  }
-  // Final pass — any remaining orphans (cycles, disconnected sub-
-  // graphs).
-  for (const p of allPersons) {
-    if (placed.has(p.id)) continue;
-    const e = buildEntry(p.id);
-    if (e) rootEntries.push(e);
+  // ── Step 4: emit nodes and edges ─────────────────────────────────
+  const nodes: Node[] = [];
+  for (const p of Object.values(fam.people)) {
+    const x = personX.get(p.id);
+    if (x === undefined) continue;
+    nodes.push({
+      id: p.id,
+      person: p,
+      x,
+      y: ORIGIN_Y + (gen.get(p.id) ?? 0) * GEN_GAP,
+    });
   }
 
-  const rootWidths = rootEntries.map(computeWidth);
-  const totalW =
-    rootWidths.reduce((a, b) => a + b, 0) +
-    SIBLING_GAP * Math.max(0, rootWidths.length - 1);
+  const edges: TreeEdge[] = [];
+  // Spouse edges (with their children — used to draw parent→child lines).
+  for (const u of fam.unions) {
+    if (!fam.people[u.partnerA] || !fam.people[u.partnerB]) continue;
+    const myChildren = fam.links
+      .filter((l) => l.parentUnion === u.id)
+      .map((l) => l.childId)
+      .filter((id) => personX.has(id));
+    edges.push({
+      type: "union",
+      unionId: u.id,
+      aId: u.partnerA,
+      bId: u.partnerB,
+      childIds: myChildren,
+    });
+  }
+  // Single-parent edges (parentId without union).
+  const singleParents = new Map<string, string[]>();
+  for (const l of fam.links) {
+    if (l.parentId && !l.parentUnion) {
+      const list = singleParents.get(l.parentId) ?? [];
+      list.push(l.childId);
+      singleParents.set(l.parentId, list);
+    }
+  }
+  for (const [pid, ids] of singleParents) {
+    if (!fam.people[pid]) continue;
+    const visible = ids.filter((id) => personX.has(id));
+    if (visible.length === 0) continue;
+    // Only emit single edge if the person is NOT in a union (to avoid
+    // overlapping with the union edge).
+    if (unionByPerson.has(pid)) continue;
+    edges.push({ type: "single", parentId: pid, childIds: visible });
+  }
 
-  let cursor = MARGIN_X;
-  rootEntries.forEach((e, i) => {
-    place(e, cursor, ORIGIN_Y);
-    cursor += rootWidths[i] + SIBLING_GAP;
-  });
+  // ── Step 5: bounding box ─────────────────────────────────────────
+  const width = Math.max(
+    MARGIN_X * 2,
+    ...nodes.map((n) => n.x + NODE_W + MARGIN_X),
+  );
+  const height = ORIGIN_Y + (maxGen + 1) * GEN_GAP + MARGIN_X;
 
-  const maxY = nodes.reduce((m, n) => Math.max(m, n.y), 0);
-
-  return {
-    nodes,
-    edges,
-    width: MARGIN_X * 2 + totalW,
-    height: maxY + NODE_H + MARGIN_X,
-  };
+  return { nodes, edges, width, height };
 }
 
 // ── Main page ────────────────────────────────────────────────────────

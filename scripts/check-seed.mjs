@@ -1,0 +1,12 @@
+import { chromium } from "playwright";
+const BASE = "http://127.0.0.1:5173/family-tree2/";
+const browser = await chromium.launch();
+const ctx = await browser.newContext();
+const page = await ctx.newPage();
+await page.goto(BASE, { waitUntil: "networkidle" });
+await page.waitForTimeout(500);
+const slotA = await page.evaluate(() => localStorage.getItem("ft2.state.v1.a"));
+const slotB = await page.evaluate(() => localStorage.getItem("ft2.state.v1.b"));
+console.log("a slot:", slotA ? slotA.slice(0, 800) : "(empty)");
+console.log("b slot:", slotB ? slotB.slice(0, 800) : "(empty)");
+await browser.close();
