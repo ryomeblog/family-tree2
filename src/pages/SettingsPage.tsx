@@ -23,6 +23,8 @@ import {
   isInstallAvailable,
   onInstallAvailableChanged,
   triggerInstall,
+  isStandalone,
+  isIOS,
 } from "../pwa/install";
 
 const Section: React.FC<{ no: string; title: string; children: React.ReactNode }> = ({
@@ -132,6 +134,10 @@ export default function SettingsPage() {
 
   const [installAvailable, setInstallAvailable] = useState(isInstallAvailable());
   useEffect(() => onInstallAvailableChanged(setInstallAvailable), []);
+  const [showIOSHelp, setShowIOSHelp] = useState(false);
+  // 表示時点でスタンドアロン起動か・iOS かを判定（静的でよい）。
+  const standalone = isStandalone();
+  const ios = isIOS();
 
   const people = activeFamily ? Object.values(activeFamily.people) : [];
 
@@ -293,32 +299,81 @@ export default function SettingsPage() {
               <Item
                 label="ホーム画面に追加（PWA）"
                 hint={
-                  installAvailable
-                    ? "ブラウザのインストールプロンプトを開きます"
-                    : "iOS は共有メニュー → ホーム画面に追加。対応ブラウザでは自動で案内が表示されます。"
+                  standalone
+                    ? "すでにホーム画面から起動しています。"
+                    : installAvailable
+                      ? "ブラウザのインストールプロンプトを開きます。"
+                      : ios
+                        ? "iOS Safari では共有メニュー →「ホーム画面に追加」で登録します。"
+                        : "アドレスバー右のインストールアイコン、またはブラウザメニュー「アプリをインストール」から追加してください。"
                 }
                 right={
-                  <SketchBtn
-                    size="sm"
-                    icon="↴"
-                    disabled={!installAvailable}
-                    onClick={async () => {
-                      const outcome = await triggerInstall();
-                      if (outcome === "accepted")
-                        store.showToast("ok", "インストールしました");
-                      else if (outcome === "dismissed")
-                        store.showToast("warn", "インストールを中止しました");
-                      else
-                        store.showToast(
-                          "warn",
-                          "このブラウザではプロンプトがまだ使えません",
-                        );
-                    }}
-                  >
-                    {installAvailable ? "インストール" : "待機中"}
-                  </SketchBtn>
+                  standalone ? (
+                    <Chip tone="shu">✓ インストール済み</Chip>
+                  ) : installAvailable ? (
+                    <SketchBtn
+                      size="sm"
+                      icon="↴"
+                      onClick={async () => {
+                        const outcome = await triggerInstall();
+                        if (outcome === "accepted")
+                          store.showToast("ok", "インストールしました");
+                        else if (outcome === "dismissed")
+                          store.showToast("warn", "インストールを中止しました");
+                        else
+                          store.showToast(
+                            "warn",
+                            "このブラウザではプロンプトがまだ使えません",
+                          );
+                      }}
+                    >
+                      インストール
+                    </SketchBtn>
+                  ) : ios ? (
+                    <SketchBtn
+                      size="sm"
+                      icon="?"
+                      onClick={() => setShowIOSHelp((v) => !v)}
+                    >
+                      {showIOSHelp ? "閉じる" : "手順を見る"}
+                    </SketchBtn>
+                  ) : (
+                    <Chip tone="mute">プロンプト待機中</Chip>
+                  )
                 }
               />
+              {ios && !standalone && showIOSHelp && (
+                <div
+                  style={{
+                    margin: "6px 0 14px",
+                    padding: "14px 16px",
+                    background: "#FBF6E6",
+                    border: `1px solid ${C.line}`,
+                    borderRadius: 4,
+                  }}
+                >
+                  <Hand size={12} color={C.shu} bold style={{ display: "block", marginBottom: 8 }}>
+                    iOS で「ホーム画面に追加」
+                  </Hand>
+                  <ol
+                    style={{
+                      margin: 0,
+                      paddingLeft: 22,
+                      fontFamily: F.hand,
+                      fontSize: 12.5,
+                      color: C.sumi,
+                      lineHeight: 1.9,
+                    }}
+                  >
+                    <li>画面下の <strong>共有ボタン</strong>（□ に ↑ のアイコン）をタップ</li>
+                    <li>メニューをスクロールして <strong>「ホーム画面に追加」</strong> を選択</li>
+                    <li>名前（既定：家系図）を確認して <strong>「追加」</strong> をタップ</li>
+                  </ol>
+                  <Hand size={10.5} color={C.pale} style={{ display: "block", marginTop: 8 }}>
+                    ※ Safari でのみ利用できます。Chrome / Firefox on iOS では「共有」メニューに項目が出ません。
+                  </Hand>
+                </div>
+              )}
               <Item
                 label="バージョン"
                 right={<Hand size={12}>v0.1.0（2026-04-23）</Hand>}

@@ -431,13 +431,13 @@ useUI = create<{ lightbox?: {photos:PhotoId[]; index:number}; dialog?: ...; toas
   memories                     → MemoriesListPage
   memory/new                   → MemoryEditorPage
   memory/:mid                  → MemoryDetailPage   ※ガード: canViewMemory()
-  memory/:mid/edit             → MemoryEditorPage   ※ガード: author のみ
+  memory/:mid/edit             → MemoryEditorPage   ※ガード: canViewMemory()
 ```
 
 **ガード:**
 - `family/*` 共通ガード: 該当 Family が localStorage に存在すること、なければ `/home` へ
 - `memory/:mid` 入口ガード: `canViewMemory()` が false なら 403 的空状態を表示（「この思い出は閲覧者に登録された方のみ読めます」）
-- `memory/:mid/edit` は `author === currentViewerPersonId` のみ許可
+- `memory/:mid/edit` も `canViewMemory()`（= 書き手＋閲覧者に登録された人）なら許可。削除は従来どおり書き手のみ（§2.3 の 16）。
 
 **コンポーネント階層（抜粋）:**
 

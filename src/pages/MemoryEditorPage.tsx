@@ -15,6 +15,7 @@ import {
   F,
 } from "../components/ui";
 import { useFamilyStore, Memory, formatPerson } from "../stores/familyStore";
+import { canViewMemory } from "../domain/selectors";
 import { pickFile, ingestFile } from "../features/photos/ingest";
 import { PhotoFromIdb } from "../features/photos/PhotoFromIdb";
 import { deletePhoto } from "../storage/idb";
@@ -87,6 +88,12 @@ export default function MemoryEditorPage() {
   const family = store.families[fid];
 
   const existing: Memory | undefined = mid ? family?.memories[mid] : undefined;
+  // 編集可否：閲覧可能な人物（書き手 ＋ 閲覧者に含まれる人物）なら誰でも編集可。
+  // 新規作成（existing なし）は常に可。ガード画面は全 hooks 宣言後に条件分岐で描画する
+  // （early return だと hook order が崩れる）。
+  const canEdit =
+    !existing ||
+    canViewMemory(existing, store.currentViewerPersonId);
 
   const [title, setTitle] = useState(existing?.title ?? "");
   // 時期は西暦年で保持。表示用ラベル（"1995年（平成7年）ごろ"）は保存時に組み立てる。
@@ -183,6 +190,29 @@ export default function MemoryEditorPage() {
     () => people.filter((p) => p.id !== authorId),
     [people, authorId],
   );
+
+  if (mid && existing && !canEdit) {
+    const authorName = formatPerson(family?.people[existing.authorId]);
+    return (
+      <BarePage>
+        <AppHeader
+          familyName={family?.name ?? "—"}
+          back
+          showFamilyMenu
+          familyId={fid}
+        />
+        <div style={{ padding: 80, textAlign: "center" }}>
+          <Title size={24}>この思い出は編集できません</Title>
+          <Hand size={12} color={C.sub} style={{ display: "block", marginTop: 8 }}>
+            書き手（{authorName}）と閲覧者に登録された人のみ編集できます。自分を切り替えると編集可能になる場合があります。
+          </Hand>
+          <div style={{ marginTop: 20 }}>
+            <SketchBtn to="/settings">自分を切り替える</SketchBtn>
+          </div>
+        </div>
+      </BarePage>
+    );
+  }
 
   return (
     <BarePage>

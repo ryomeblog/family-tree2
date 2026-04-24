@@ -2,7 +2,14 @@
 // Each route renders a page under src/pages (or a modal under
 // src/modals).
 import React, { useEffect } from "react";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import {
+  HashRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+  useParams,
+} from "react-router-dom";
 import { GlobalToast } from "./components/ui";
 import { useFamilyStore } from "./stores/familyStore";
 import { registerSW } from "./pwa/registerSW";
@@ -30,6 +37,15 @@ import RelationAddModal from "./modals/RelationAddModal";
 import DeleteConfirmModal from "./modals/DeleteConfirmModal";
 import ImportErrorModal from "./modals/ImportErrorModal";
 import PhotoLightbox from "./modals/PhotoLightbox";
+
+// 未知の fid でアクセスしたら /home に戻す。リンク共有ミスや手入力のミスで
+// 空データ画面が出る事故を防ぐ。
+const FamilyGuard: React.FC = () => {
+  const { fid } = useParams();
+  const exists = useFamilyStore((s) => !!(fid && s.families[fid]));
+  if (!exists) return <Navigate to="/home" replace />;
+  return <Outlet />;
+};
 
 const BootstrapEffects: React.FC = () => {
   const dirty = useFamilyStore((s) => s.dirty);
@@ -72,22 +88,24 @@ export const App: React.FC = () => (
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/settings/delete-all" element={<DeleteConfirmModal />} />
 
-      {/* ── Family-scoped routes ───────────────────────────────── */}
-      <Route path="/family/:fid/tree" element={<TreeEditorPage />} />
-      <Route path="/family/:fid/delete" element={<DeleteConfirmModal />} />
-      <Route path="/family/:fid/relate" element={<RelationAddModal />} />
-      <Route path="/family/:fid/photo/:pid" element={<PhotoLightbox />} />
+      {/* ── Family-scoped routes（未知 fid は /home にリダイレクト） ── */}
+      <Route path="/family/:fid" element={<FamilyGuard />}>
+        <Route path="tree" element={<TreeEditorPage />} />
+        <Route path="delete" element={<DeleteConfirmModal />} />
+        <Route path="relate" element={<RelationAddModal />} />
+        <Route path="photo/:pid" element={<PhotoLightbox />} />
 
-      <Route path="/family/:fid/person/new" element={<AddPersonModal />} />
-      <Route path="/family/:fid/person/:pid" element={<PersonDetailPage />} />
-      <Route path="/family/:fid/person/:pid/edit" element={<EditPersonModal />} />
-      <Route path="/family/:fid/person/:pid/delete" element={<DeleteConfirmModal />} />
+        <Route path="person/new" element={<AddPersonModal />} />
+        <Route path="person/:pid" element={<PersonDetailPage />} />
+        <Route path="person/:pid/edit" element={<EditPersonModal />} />
+        <Route path="person/:pid/delete" element={<DeleteConfirmModal />} />
 
-      <Route path="/family/:fid/memories" element={<MemoriesListPage />} />
-      <Route path="/family/:fid/memory/new" element={<MemoryEditorPage />} />
-      <Route path="/family/:fid/memory/:mid" element={<MemoryDetailPage />} />
-      <Route path="/family/:fid/memory/:mid/edit" element={<MemoryEditorPage />} />
-      <Route path="/family/:fid/memory/:mid/delete" element={<DeleteConfirmModal />} />
+        <Route path="memories" element={<MemoriesListPage />} />
+        <Route path="memory/new" element={<MemoryEditorPage />} />
+        <Route path="memory/:mid" element={<MemoryDetailPage />} />
+        <Route path="memory/:mid/edit" element={<MemoryEditorPage />} />
+        <Route path="memory/:mid/delete" element={<DeleteConfirmModal />} />
+      </Route>
 
       {/* ── Fallback ───────────────────────────────────────────── */}
       <Route path="*" element={<NotFoundPage />} />
