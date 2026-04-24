@@ -96,6 +96,9 @@ export default function MemoryEditorPage() {
   );
   const [body, setBody] = useState(existing?.body ?? "");
   const [photoIds, setPhotoIds] = useState<string[]>(existing?.photoIds ?? []);
+  const [heroPhotoId, setHeroPhotoId] = useState<string | undefined>(
+    existing?.heroPhotoId,
+  );
   const [viewers, setViewers] = useState<string[]>(existing?.viewers ?? []);
   const [related, setRelated] = useState<string[]>(existing?.related ?? []);
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
@@ -121,10 +124,17 @@ export default function MemoryEditorPage() {
     }
   };
   const removePhoto = async (id: string) => {
-    setPhotoIds(photoIds.filter((p) => p !== id));
+    const next = photoIds.filter((p) => p !== id);
+    setPhotoIds(next);
+    // 代表写真を削除したら先頭を自動選択（無ければ未設定）。
+    if (heroPhotoId === id) setHeroPhotoId(next[0]);
     await deletePhoto(id).catch(() => undefined);
     await deletePhoto(id + ".thumb").catch(() => undefined);
   };
+
+  // 代表写真の実効値：明示指定があればそれ、なければ先頭。
+  const effectiveHeroId =
+    heroPhotoId && photoIds.includes(heroPhotoId) ? heroPhotoId : photoIds[0];
 
   const people = family ? Object.values(family.people) : [];
 
@@ -145,6 +155,7 @@ export default function MemoryEditorPage() {
       tags,
       photos: photoIds.length || existing?.photos || 0,
       photoIds,
+      heroPhotoId: effectiveHeroId,
       year: existing?.year ?? period.match(/\d{4}/)?.[0] ?? "—",
       era: existing?.era,
     };
@@ -303,32 +314,81 @@ export default function MemoryEditorPage() {
                 最大10枚／JPEG に圧縮してIndexedDBへ保存
               </Hand>
             </Row>
+            <Hand size={11} color={C.pale} style={{ display: "block", marginTop: 4 }}>
+              写真をクリックすると代表写真として選べます（既定は最初の写真）。
+            </Hand>
             <Row gap={10} wrap style={{ marginTop: 10 }}>
-              {photoIds.map((id) => (
-                <div key={id} style={{ position: "relative" }}>
-                  <PhotoFromIdb id={id} size={108} rounded={4} />
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(id)}
-                    title="この写真を削除"
+              {photoIds.map((id) => {
+                const isHero = id === effectiveHeroId;
+                return (
+                  <div
+                    key={id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setHeroPhotoId(id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setHeroPhotoId(id);
+                      }
+                    }}
+                    title={isHero ? "代表写真" : "クリックで代表写真に設定"}
                     style={{
-                      position: "absolute",
-                      top: 4,
-                      right: 4,
-                      width: 22,
-                      height: 22,
-                      borderRadius: "50%",
-                      background: "rgba(255,254,248,0.95)",
-                      border: `1px solid ${C.sumi}`,
-                      fontFamily: F.mincho,
-                      fontSize: 11,
+                      position: "relative",
+                      padding: 3,
+                      border: `3px solid ${isHero ? "#2F6FEB" : "transparent"}`,
+                      borderRadius: 6,
+                      boxShadow: isHero ? "0 0 0 1px #2F6FEB33" : undefined,
                       cursor: "pointer",
+                      outline: "none",
                     }}
                   >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                    <PhotoFromIdb id={id} size={108} rounded={3} />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removePhoto(id);
+                      }}
+                      title="この写真を削除"
+                      style={{
+                        position: "absolute",
+                        top: 6,
+                        right: 6,
+                        width: 22,
+                        height: 22,
+                        borderRadius: "50%",
+                        background: "rgba(255,254,248,0.95)",
+                        border: `1px solid ${C.sumi}`,
+                        fontFamily: F.mincho,
+                        fontSize: 11,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ✕
+                    </button>
+                    {isHero && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          right: 6,
+                          bottom: 6,
+                          background: "#2F6FEB",
+                          color: "#fff",
+                          fontFamily: F.hand,
+                          fontSize: 10,
+                          padding: "2px 6px",
+                          borderRadius: 2,
+                          letterSpacing: "0.05em",
+                          pointerEvents: "none",
+                        }}
+                      >
+                        代表写真
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
               <button
                 type="button"
                 disabled={photoIds.length >= 10}
@@ -444,6 +504,8 @@ export default function MemoryEditorPage() {
                 onChange={(e) => setTagDraft(e.target.value)}
                 placeholder="タグを追加"
                 onKeyDown={(e) => {
+                  // IME 変換中の Enter は確定用なのでタグ追加には使わない。
+                  if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                   if (e.key === "Enter" && tagDraft.trim()) {
                     setTags([...tags, tagDraft.replace(/^#/, "")]);
                     setTagDraft("");
@@ -510,13 +572,38 @@ export default function MemoryEditorPage() {
               padding: 10,
             }}
           >
-            <Hand size={11} color={C.shu} bold>
-              候補
-            </Hand>
+            <Row justify="space-between" align="center">
+              <Hand size={11} color={C.shu} bold>
+                候補（{canChoose.filter((p) => !viewers.includes(p.id)).length}）
+              </Hand>
+              <button
+                type="button"
+                onClick={() => {
+                  const rest = canChoose
+                    .filter((p) => !viewers.includes(p.id))
+                    .map((p) => p.id);
+                  if (rest.length === 0) return;
+                  setViewers([...viewers, ...rest]);
+                }}
+                disabled={
+                  canChoose.filter((p) => !viewers.includes(p.id)).length === 0
+                }
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: C.shu,
+                  cursor: "pointer",
+                  fontFamily: F.hand,
+                  fontSize: 11,
+                  padding: 0,
+                }}
+              >
+                ＋ 全員を追加
+              </button>
+            </Row>
             <Col gap={2} style={{ marginTop: 6 }}>
               {canChoose
                 .filter((p) => !viewers.includes(p.id))
-                .slice(0, 8)
                 .map((p) => (
                   <Row
                     key={p.id}

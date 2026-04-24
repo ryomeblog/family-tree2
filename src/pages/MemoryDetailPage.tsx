@@ -9,7 +9,6 @@ import {
   Row,
   Col,
   Chip,
-  Photo,
   Brush,
   Hanko,
   C,
@@ -17,6 +16,7 @@ import {
 } from "../components/ui";
 import { useFamilyStore, formatPerson } from "../stores/familyStore";
 import { canViewMemory } from "../domain/selectors";
+import { PhotoFromIdb } from "../features/photos/PhotoFromIdb";
 
 const MemoryBody: React.FC<{ body: string }> = ({ body }) => {
   const isHtml = /<\w+/.test(body);
@@ -147,6 +147,11 @@ export default function MemoryDetailPage() {
     ? formatPerson(family.people[memory.protagonistId])
     : "—";
   const authorInitial = family.people[memory.authorId]?.given?.[0] ?? "署";
+  const photoIds = memory.photoIds ?? [];
+  const heroId =
+    memory.heroPhotoId && photoIds.includes(memory.heroPhotoId)
+      ? memory.heroPhotoId
+      : photoIds[0];
 
   return (
     <BarePage>
@@ -222,28 +227,26 @@ export default function MemoryDetailPage() {
 
         <Brush width={200} color={C.shuSoft} />
 
-        {memory.photos > 0 && (
+        {heroId && (
           <div style={{ marginTop: 24 }}>
             <div
               style={{
                 aspectRatio: "16/9",
                 width: "100%",
-                background:
-                  "linear-gradient(180deg, #FDE4D4 0%, #E8A090 50%, #8C4434 100%)",
+                background: "#000",
                 borderRadius: 6,
                 border: `1px solid ${C.sumi}`,
                 position: "relative",
                 overflow: "hidden",
               }}
             >
-              <svg width="100%" height="100%" viewBox="0 0 200 100">
-                <g fill="rgba(26,25,21,0.14)">
-                  <rect x="0" y="75" width="200" height="25" />
-                  <circle cx="30" cy="70" r="6" />
-                  <circle cx="60" cy="72" r="8" />
-                  <circle cx="150" cy="68" r="7" />
-                </g>
-              </svg>
+              <PhotoFromIdb
+                id={heroId}
+                size="100%"
+                aspect="16/9"
+                rounded={0}
+                style={{ width: "100%", height: "100%" }}
+              />
               <Hand
                 size={11}
                 color="#F3EEDF"
@@ -251,7 +254,7 @@ export default function MemoryDetailPage() {
                   position: "absolute",
                   bottom: 10,
                   right: 14,
-                  background: "rgba(0,0,0,0.35)",
+                  background: "rgba(0,0,0,0.55)",
                   padding: "4px 10px",
                   borderRadius: 2,
                 }}
@@ -267,12 +270,12 @@ export default function MemoryDetailPage() {
           <Hand color={C.pale}>本文はまだ書かれていません。</Hand>
         )}
 
-        {memory.photos > 0 && (
+        {photoIds.length > 0 && (
           <div style={{ marginTop: 36, maxWidth: 760 }}>
             <Title size={16}>写真の記録</Title>
             <Row gap={10} wrap style={{ marginTop: 12 }}>
-              {Array.from({ length: memory.photos }).map((_, i) => (
-                <Photo key={i} size={120} label={`写${i + 1}`} />
+              {photoIds.map((id) => (
+                <PhotoFromIdb key={id} id={id} size={120} rounded={4} />
               ))}
             </Row>
           </div>

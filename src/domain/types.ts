@@ -60,6 +60,7 @@ export interface Memory {
   tags: string[];
   photos: number;
   photoIds?: PhotoId[];
+  heroPhotoId?: PhotoId;
   locked?: boolean;
   year: string;
   era?: string;

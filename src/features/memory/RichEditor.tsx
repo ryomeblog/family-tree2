@@ -169,28 +169,38 @@ const RichEditor: React.FC<Props> = ({ value, onChange }) => {
         className="ft-prose"
       />
       <style>{`
+        /*
+         * 罫線ノートのフィール：
+         *   line-height を罫ピッチ(30px)に合わせ、
+         *   各行のベースラインが罫線の直上に落ちるよう padding-top を調整。
+         *   段落・見出し・リストの margin は 30 の倍数または 0 にして
+         *   グリッドのリズムを崩さない。
+         */
         .ft-prose .tiptap {
-          min-height: 260px;
-          padding: 20px 24px;
+          min-height: 270px;
+          padding: 4px 24px 20px;
           font-family: ${F.mincho};
           font-size: 15px;
           color: ${C.sumi};
-          line-height: 1.9;
+          line-height: 30px;
           outline: none;
           background-color: ${C.paper};
           background-image: repeating-linear-gradient(transparent 0 29px, ${C.line} 29px 30px);
           background-size: 100% 30px;
+          background-origin: padding-box;
+          background-position: 0 2px;
         }
-        .ft-prose .tiptap p { margin: 0 0 10px; }
-        .ft-prose .tiptap h1 { font-size: 22px; margin: 16px 0 8px; }
-        .ft-prose .tiptap h2 { font-size: 18px; margin: 14px 0 6px; }
+        .ft-prose .tiptap p { margin: 0; }
+        .ft-prose .tiptap h1 { font-size: 22px; line-height: 30px; margin: 0; }
+        .ft-prose .tiptap h2 { font-size: 18px; line-height: 30px; margin: 0; }
         .ft-prose .tiptap blockquote {
           border-left: 3px solid ${C.shu};
           padding-left: 12px;
           color: ${C.sub};
-          margin: 10px 0;
+          margin: 0;
         }
-        .ft-prose .tiptap ul, .ft-prose .tiptap ol { padding-left: 22px; margin: 8px 0; }
+        .ft-prose .tiptap ul, .ft-prose .tiptap ol { padding-left: 22px; margin: 0; }
+        .ft-prose .tiptap li { line-height: 30px; }
         .ft-prose .tiptap a { color: ${C.shu}; text-decoration: underline; }
         .ft-prose .tiptap p.is-editor-empty:first-child::before {
           content: attr(data-placeholder);
