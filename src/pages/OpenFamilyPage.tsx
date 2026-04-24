@@ -67,7 +67,7 @@ export default function OpenFamilyPage() {
   return (
     <BarePage>
       <AppHeader back backTo="/home" />
-      <div style={{ padding: "32px 48px", height: "calc(100vh - 56px)", overflowY: "auto" }}>
+      <div style={{ padding: "32px 48px", height: "calc(var(--app-h) - 56px)", overflowY: "auto" }}>
         <Hand size={11} color={C.shu} style={{ letterSpacing: "0.2em" }}>
           ─── OPEN FAMILY
         </Hand>

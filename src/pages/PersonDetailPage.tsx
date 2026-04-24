@@ -107,7 +107,7 @@ export default function PersonDetailPage() {
         style={{
           display: "flex",
           flexDirection: isMobile ? "column" : "row",
-          height: "calc(100vh - 56px)",
+          height: "calc(var(--app-h) - 56px)",
           overflowY: isMobile ? "auto" : "hidden",
         }}
       >

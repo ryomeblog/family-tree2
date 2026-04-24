@@ -254,7 +254,7 @@ export default function MemoryEditorPage() {
         style={{
           display: "flex",
           flexDirection: isMobile ? "column" : "row",
-          height: "calc(100vh - 56px)",
+          height: "calc(var(--app-h) - 56px)",
           overflow: isMobile ? "auto" : "hidden",
         }}
       >

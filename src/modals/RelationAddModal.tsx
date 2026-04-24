@@ -123,7 +123,7 @@ export default function RelationAddModal() {
         showFamilyMenu
         familyId={fid}
       />
-      <div style={{ height: "calc(100vh - 56px)", position: "relative" }}>
+      <div style={{ height: "calc(var(--app-h) - 56px)", position: "relative" }}>
         <div
           style={{
             position: "absolute",
@@ -209,7 +209,7 @@ const Shell: React.FC<{ children: React.ReactNode; onClose: () => void }> = ({
     style={{
       width: 760,
       maxWidth: "calc(100vw - 32px)",
-      maxHeight: "calc(100vh - 120px)",
+      maxHeight: "calc(var(--app-h) - 120px)",
       background: C.paper,
       border: `2px solid ${C.sumi}`,
       borderRadius: 6,

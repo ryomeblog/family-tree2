@@ -86,7 +86,7 @@ export default function NewFamilyModal() {
     <BarePage>
       <div
         style={{
-          height: "100vh",
+          height: "var(--app-h)",
           background: C.tatami,
           position: "relative",
           // モバイルでは grid-auto 配置だとセル幅が子の width に合ってしまい
@@ -104,7 +104,7 @@ export default function NewFamilyModal() {
             width: isMobile ? "100%" : 640,
             maxWidth: "100%",
             flex: isMobile ? 1 : "none",
-            maxHeight: isMobile ? "100vh" : "calc(100vh - 32px)",
+            maxHeight: isMobile ? "var(--app-h)" : "calc(var(--app-h) - 32px)",
             background: C.paper,
             border: isMobile ? "none" : `2px solid ${C.sumi}`,
             borderRadius: isMobile ? 0 : 6,

@@ -10,12 +10,26 @@
  *
  *   html / body / #root       all fixed 100% / overflow: hidden.
  *                             Never scroll themselves.
- *   BarePage scroll="fixed"   owns 100vh, overflow hidden; scrolling
- *                             (if any) lives inside its children's
- *                             own `overflow:auto` panes.
- *   BarePage scroll="flow"    owns 100vh, overflow-y:auto — the one
- *                             scrollbar for document-flow pages.
+ *   BarePage scroll="fixed"   owns var(--app-h), overflow hidden;
+ *                             scrolling (if any) lives inside its
+ *                             children's own `overflow:auto` panes.
+ *   BarePage scroll="flow"    owns var(--app-h), overflow-y:auto —
+ *                             the one scrollbar for document-flow pages.
+ *
+ * --app-h: viewport の「いま見えている高さ」。モバイルブラウザの
+ *   アドレスバー表示/非表示に追従する dvh を優先し、非対応環境は
+ *   従来の vh にフォールバック。これにより Android Chrome の
+ *   下部アドレスバーでページ下端の UI が隠れる問題を解消する。
  */
+:root {
+  --app-h: 100vh;
+}
+@supports (height: 100dvh) {
+  :root {
+    --app-h: 100dvh;
+  }
+}
+
 html,
 body,
 #root {
@@ -34,7 +48,7 @@ body,
 }
 
 #root {
-  height: 100vh;
+  height: var(--app-h);
 }
 
 a {

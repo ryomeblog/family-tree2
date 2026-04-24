@@ -16,7 +16,7 @@ export default function NotFoundPage() {
     <BarePage>
       <div
         style={{
-          height: "100vh",
+          height: "var(--app-h)",
           display: "grid",
           placeItems: "center",
           padding: 24,

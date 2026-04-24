@@ -325,7 +325,7 @@ export default function DashboardPage() {
 
   return (
     <BarePage>
-      <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+      <div style={{ display: "flex", height: "var(--app-h)", overflow: "hidden" }}>
         <Side mobile={isMobile} open={sideOpen} onClose={() => setSideOpen(false)} />
         <div
           style={{

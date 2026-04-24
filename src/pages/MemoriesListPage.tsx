@@ -271,7 +271,7 @@ export default function MemoriesListPage() {
       <div
         style={{
           padding: isMobile ? "16px 14px" : "24px 40px",
-          height: "calc(100vh - 56px)",
+          height: "calc(var(--app-h) - 56px)",
           overflowY: "auto",
         }}
       >

@@ -622,7 +622,7 @@ export default function TreeEditorPage() {
         }
       />
 
-      <div style={{ display: "flex", height: "calc(100vh - 56px)", overflow: "hidden" }}>
+      <div style={{ display: "flex", height: "calc(var(--app-h) - 56px)", overflow: "hidden" }}>
         {/* Toolbar */}
         <div
           style={{

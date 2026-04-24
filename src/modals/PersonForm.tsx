@@ -146,7 +146,7 @@ export default function PersonForm({
       style={{
         width: isMobile ? "100%" : 720,
         maxWidth: isMobile ? "100%" : "calc(100vw - 32px)",
-        maxHeight: isMobile ? "100%" : "calc(100vh - 120px)",
+        maxHeight: isMobile ? "100%" : "calc(var(--app-h) - 120px)",
         height: isMobile ? "100%" : undefined,
         flex: isMobile ? 1 : "none",
         background: C.paper,

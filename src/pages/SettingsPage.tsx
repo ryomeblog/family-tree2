@@ -148,7 +148,7 @@ export default function SettingsPage() {
       <div
         style={{
           padding: "clamp(16px, 4vw, 28px) clamp(14px, 4vw, 48px)",
-          height: "calc(100vh - 56px)",
+          height: "calc(var(--app-h) - 56px)",
           overflowY: "auto",
         }}
       >

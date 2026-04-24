@@ -53,7 +53,7 @@ export default function PhotoLightbox() {
     <BarePage>
       <div
         style={{
-          height: "100vh",
+          height: "var(--app-h)",
           background: "#0F0E0B",
           color: "#F3EEDF",
           position: "relative",

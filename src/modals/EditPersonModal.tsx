@@ -15,7 +15,7 @@ export default function EditPersonModal() {
       <AppHeader familyName={familyName} back showFamilyMenu familyId={fid} />
       <div
         style={{
-          height: "calc(100vh - 56px)",
+          height: "calc(var(--app-h) - 56px)",
           position: "relative",
           background: isMobile ? "transparent" : "rgba(26,25,21,0.36)",
         }}

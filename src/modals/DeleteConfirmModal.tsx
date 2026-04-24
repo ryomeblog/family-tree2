@@ -162,7 +162,7 @@ const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <BarePage>
     <div
       style={{
-        height: "100vh",
+        height: "var(--app-h)",
         background: C.tatami,
         position: "relative",
         // grid+auto 列だと子の width がそのままセル幅になり、モバイルで溢れる。

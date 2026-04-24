@@ -233,7 +233,7 @@ export default function MemoryDetailPage() {
         ref={scrollRef}
         style={{
           padding: isMobile ? "20px 18px" : "40px 60px",
-          height: "calc(100vh - 56px)",
+          height: "calc(var(--app-h) - 56px)",
           overflowY: "auto",
           background: C.paper,
           position: "relative",

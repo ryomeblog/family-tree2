@@ -63,7 +63,7 @@ export default function ImportErrorModal() {
     <BarePage>
       <div
         style={{
-          height: "100vh",
+          height: "var(--app-h)",
           background: C.tatami,
           padding: 24,
           position: "relative",
@@ -137,7 +137,7 @@ export default function ImportErrorModal() {
             style={{
               position: "relative",
               zIndex: 1,
-              minHeight: "calc(100vh - 48px)",
+              minHeight: "calc(var(--app-h) - 48px)",
               alignItems: "center",
               justifyContent: "center",
             }}

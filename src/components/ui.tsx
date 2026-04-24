@@ -999,12 +999,12 @@ export const Backdrop: React.FC<{ children: React.ReactNode }> = ({
 export const BarePage: React.FC<{
   children: React.ReactNode;
   /**
-   * "fixed" (default) — viewport-locked. BarePage is 100vh and never
+   * "fixed" (default) — viewport-locked. BarePage is var(--app-h) and never
    * scrolls itself; if the wire needs scrolling it has its own inner
    * `calc(100% - 56px) + overflowY:auto` pane (Tree / Memory list
    * etc.). No bar appears on #root because the page fits exactly.
    *
-   * "flow" — document-flow. BarePage takes 100vh and scrolls
+   * "flow" — document-flow. BarePage takes var(--app-h) and scrolls
    * vertically on its own (the SINGLE scrollbar for Landing / long
    * forms).
    */
@@ -1015,13 +1015,13 @@ export const BarePage: React.FC<{
       style={
         scroll === "fixed"
           ? {
-              height: "100vh",
+              height: "var(--app-h)",
               overflow: "hidden",
               position: "relative",
               background: C.paper,
             }
           : {
-              height: "100vh",
+              height: "var(--app-h)",
               overflowY: "auto",
               overflowX: "hidden",
               position: "relative",
