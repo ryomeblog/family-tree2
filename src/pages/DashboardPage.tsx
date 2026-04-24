@@ -17,7 +17,6 @@ import { useFamilyStore, Family } from "../stores/familyStore";
 const NAV = [
   { i: "家", t: "家系図", to: "/home", active: true },
   { i: "帖", t: "思い出", to: "/family/yamada/memories" },
-  { i: "写", t: "写真", to: "/family/yamada/tree" },
   { i: "設", t: "設定", to: "/settings" },
 ];
 

@@ -9,10 +9,10 @@ import {
   Row,
   Col,
   Chip,
-  Photo,
   Brush,
   C,
 } from "../components/ui";
+import { PhotoFromIdb } from "../features/photos/PhotoFromIdb";
 import { useFamilyStore, Memory, formatPerson } from "../stores/familyStore";
 import { canViewMemory } from "../domain/selectors";
 import SearchPopover from "../modals/SearchPopover";
@@ -126,10 +126,10 @@ const Card: React.FC<{
           </Row>
         </Col>
         <Row gap={6}>
-          {Array.from({ length: Math.min(memory.photos, 3) }).map((_, i) => (
-            <Photo key={i} size={52} label={`${i + 1}`} />
+          {(memory.photoIds ?? []).slice(0, 3).map((id) => (
+            <PhotoFromIdb key={id} id={id} size={52} rounded={3} />
           ))}
-          {memory.photos > 3 && (
+          {(memory.photoIds?.length ?? 0) > 3 && (
             <div
               style={{
                 width: 52,
@@ -143,7 +143,7 @@ const Card: React.FC<{
                 borderRadius: 3,
               }}
             >
-              +{memory.photos - 3}
+              +{(memory.photoIds?.length ?? 0) - 3}
             </div>
           )}
         </Row>

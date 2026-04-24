@@ -268,8 +268,11 @@ export default function MemoryDetailPage() {
 
         {heroId && (
           <div style={{ marginTop: 24 }}>
-            <div
+            <Link
+              to={`/family/${fid}/photo/${heroId}?ids=${photoIds.join(",")}&i=${Math.max(0, photoIds.indexOf(heroId))}`}
+              title="拡大して見る"
               style={{
+                display: "block",
                 aspectRatio: "16/9",
                 width: "100%",
                 background: "#000",
@@ -277,6 +280,7 @@ export default function MemoryDetailPage() {
                 border: `1px solid ${C.sumi}`,
                 position: "relative",
                 overflow: "hidden",
+                cursor: "zoom-in",
               }}
             >
               <PhotoFromIdb
@@ -300,7 +304,7 @@ export default function MemoryDetailPage() {
               >
                 {memory.year}年 ・ 代表写真
               </Hand>
-            </div>
+            </Link>
           </div>
         )}
 
@@ -312,9 +316,24 @@ export default function MemoryDetailPage() {
         {photoIds.length > 0 && (
           <div style={{ marginTop: 36, maxWidth: 760 }}>
             <Title size={16}>写真の記録</Title>
+            <Hand size={11} color={C.pale} style={{ display: "block", marginTop: 4 }}>
+              写真をクリックすると拡大表示します（← → で切替）。
+            </Hand>
             <Row gap={10} wrap style={{ marginTop: 12 }}>
-              {photoIds.map((id) => (
-                <PhotoFromIdb key={id} id={id} size={120} rounded={4} />
+              {photoIds.map((id, i) => (
+                <Link
+                  key={id}
+                  to={`/family/${fid}/photo/${id}?ids=${photoIds.join(",")}&i=${i}`}
+                  title={`写真 ${i + 1} / ${photoIds.length}`}
+                  style={{
+                    display: "inline-block",
+                    lineHeight: 0,
+                    borderRadius: 4,
+                    cursor: "zoom-in",
+                  }}
+                >
+                  <PhotoFromIdb id={id} size={120} rounded={4} />
+                </Link>
               ))}
             </Row>
           </div>

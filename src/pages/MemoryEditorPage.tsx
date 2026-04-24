@@ -19,6 +19,8 @@ import { pickFile, ingestFile } from "../features/photos/ingest";
 import { PhotoFromIdb } from "../features/photos/PhotoFromIdb";
 import { deletePhoto } from "../storage/idb";
 import RichEditor from "../features/memory/RichEditor";
+import { YearPicker } from "../components/YearPicker";
+import { westernToEra } from "../domain/fuzzyDate";
 
 const ViewerChip: React.FC<{
   name: string;
@@ -87,7 +89,11 @@ export default function MemoryEditorPage() {
   const existing: Memory | undefined = mid ? family?.memories[mid] : undefined;
 
   const [title, setTitle] = useState(existing?.title ?? "");
-  const [period, setPeriod] = useState(existing?.periodLabel ?? "");
+  // 時期は西暦年で保持。表示用ラベル（"1995年（平成7年）ごろ"）は保存時に組み立てる。
+  const [periodYear, setPeriodYear] = useState<number | undefined>(() => {
+    const n = parseInt(existing?.year ?? "", 10);
+    return Number.isFinite(n) ? n : undefined;
+  });
   const [protagonistId, setProtagonistId] = useState(
     existing?.protagonistId ?? family?.rootPersonId ?? "",
   );
@@ -143,10 +149,14 @@ export default function MemoryEditorPage() {
       store.showToast("err", "タイトルを入れてください");
       return;
     }
+    const era = periodYear !== undefined ? westernToEra(periodYear) : undefined;
     const next: Memory = {
       id: existing?.id ?? "m_" + Math.random().toString(36).slice(2, 8),
       title: title.trim(),
-      periodLabel: period,
+      periodLabel:
+        periodYear !== undefined && era
+          ? `${periodYear}年（${era.era}${era.year}年）ごろ`
+          : "",
       protagonistId: protagonistId || undefined,
       authorId,
       body,
@@ -156,8 +166,8 @@ export default function MemoryEditorPage() {
       photos: photoIds.length || existing?.photos || 0,
       photoIds,
       heroPhotoId: effectiveHeroId,
-      year: existing?.year ?? period.match(/\d{4}/)?.[0] ?? "—",
-      era: existing?.era,
+      year: periodYear !== undefined ? String(periodYear) : "—",
+      era: era ? `${era.era}${era.year}` : undefined,
     };
     if (existing) {
       store.patchMemory(fid, existing.id, next);
@@ -264,14 +274,13 @@ export default function MemoryEditorPage() {
                 ))}
               </select>
             </Field>
-            <Field
-              label="時期"
-              value={period}
-              onChange={setPeriod}
-              placeholder="1995年（平成7年）ごろ"
-              width={240}
-              reserveHint
-            />
+            <Field label="時期" width={240} reserveHint>
+              <YearPicker
+                value={periodYear}
+                onChange={setPeriodYear}
+                placeholder="年を選ぶ"
+              />
+            </Field>
             <Field label="書き手" width={200} hint="あなた">
               <select
                 value={authorId}
