@@ -21,20 +21,26 @@ export async function resizeToJpeg(
   );
 }
 
+// 画像全体を正方形の中に収め、余白は黒で塗りつぶす（レターボックス）。
+// 従来の中央クロップでは写真の端が切れるため、顔や被写体を欠けさせない。
 export async function cropSquareJpeg(
   input: Blob,
   size: number,
   quality = 0.82,
 ): Promise<Blob> {
   const bitmap = await blobToBitmap(input);
-  const s = Math.min(bitmap.width, bitmap.height);
-  const sx = (bitmap.width - s) / 2;
-  const sy = (bitmap.height - s) / 2;
+  const scale = size / Math.max(bitmap.width, bitmap.height);
+  const dw = Math.round(bitmap.width * scale);
+  const dh = Math.round(bitmap.height * scale);
+  const dx = Math.round((size - dw) / 2);
+  const dy = Math.round((size - dh) / 2);
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(bitmap, sx, sy, s, s, 0, 0, size, size);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, size, size);
+  ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height, dx, dy, dw, dh);
   return await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),

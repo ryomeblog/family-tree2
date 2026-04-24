@@ -24,14 +24,14 @@ import {
   formatPerson,
   formatBirthYear,
 } from "../stores/familyStore";
+import { PhotoFromIdb } from "../features/photos/PhotoFromIdb";
 
-type ToolMode = "select" | "add" | "line" | "edit" | "photo" | "search";
+type ToolMode = "select" | "add" | "line" | "edit" | "search";
 const TOOLS: { k: ToolMode; i: string; t: string }[] = [
   { k: "select", i: "◉", t: "選択" },
   { k: "add", i: "＋", t: "追加" },
   { k: "line", i: "／", t: "線" },
   { k: "edit", i: "筆", t: "編集" },
-  { k: "photo", i: "写", t: "写真" },
   { k: "search", i: "⌕", t: "検索" },
 ];
 
@@ -453,7 +453,7 @@ export default function TreeEditorPage() {
   };
 
   const onCanvasMouseDown = (e: React.MouseEvent) => {
-    if (mode !== "select" && mode !== "photo") return;
+    if (mode !== "select") return;
     dragging.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -1054,7 +1054,7 @@ const Inspector: React.FC<{
     ) : (
       <>
         <Row gap={12} align="flex-start">
-          <Photo size={72} label="肖像" />
+          <PhotoFromIdb id={person.portrait} size={72} label="肖像" />
           <Col gap={4}>
             <Title size={18}>{formatPerson(person)}</Title>
             {(person.kanaSurname || person.kanaGiven) && (

@@ -45,7 +45,8 @@ export const PhotoFromIdb: React.FC<{
         height: aspect ? undefined : size,
         aspectRatio: aspect,
         borderRadius: rounded,
-        objectFit: "cover",
+        objectFit: "contain",
+        background: "#000",
         display: "block",
         ...style,
       }}
