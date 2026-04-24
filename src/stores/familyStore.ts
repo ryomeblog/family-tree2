@@ -28,8 +28,6 @@ const ROOT_KEY = "ft2.state.v1";
 const yamada: Family = {
   id: "yamada",
   name: "山田家",
-  theme: "picture-book",
-  themeColor: "#E8B8B2",
   rootPersonId: "p_sho",
   generations: 4,
   lastUpdated: "昨日",
@@ -171,8 +169,6 @@ const yamada: Family = {
 const suzuki: Family = {
   id: "suzuki",
   name: "鈴木家",
-  theme: "picture-book",
-  themeColor: "#C8D4B8",
   rootPersonId: "p_ichiro",
   generations: 5,
   lastUpdated: "3日前",
@@ -194,8 +190,6 @@ const suzuki: Family = {
 const sato: Family = {
   id: "sato",
   name: "佐藤家・母方",
-  theme: "picture-book",
-  themeColor: "#E8DFA0",
   rootPersonId: "p_ume",
   generations: 3,
   lastUpdated: "先月",
@@ -224,7 +218,6 @@ interface FamilyStoreShape {
   reminderEnabled: boolean;
   reminderShownAt?: number; // epoch ms of last reminder shown
   lastExportAt?: number;
-  theme: "picture-book" | "scroll" | "modern";
   persistGranted: boolean;
   storageEstimate?: { used: number; total: number };
 
@@ -259,7 +252,6 @@ interface FamilyStoreShape {
   setReminder: (on: boolean) => void;
   touchReminder: () => void;
   setLastExport: () => void;
-  setTheme: (t: "picture-book" | "scroll" | "modern") => void;
   setPersistGranted: (v: boolean) => void;
   setStorageEstimate: (e: { used: number; total: number } | undefined) => void;
   wipe: () => void;
@@ -285,7 +277,6 @@ export const useFamilyStore = create<FamilyStoreShape>()(
       currentViewerPersonId: "p_sho",
       dirty: false,
       reminderEnabled: true,
-      theme: "picture-book",
       persistGranted: false,
 
       getFamily: (id) => {
@@ -507,7 +498,6 @@ export const useFamilyStore = create<FamilyStoreShape>()(
       setReminder: (on) => set({ reminderEnabled: on }),
       touchReminder: () => set({ reminderShownAt: Date.now() }),
       setLastExport: () => set({ lastExportAt: Date.now() }),
-      setTheme: (t) => set({ theme: t }),
       setPersistGranted: (v) => set({ persistGranted: v }),
       setStorageEstimate: (e) => set({ storageEstimate: e }),
       wipe: () => {
@@ -550,7 +540,6 @@ export const useFamilyStore = create<FamilyStoreShape>()(
           reminderEnabled: s.reminderEnabled,
           reminderShownAt: s.reminderShownAt,
           lastExportAt: s.lastExportAt,
-          theme: s.theme,
           persistGranted: s.persistGranted,
         }) as FamilyStoreShape,
     },

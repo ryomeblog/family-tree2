@@ -124,7 +124,7 @@ const FamilyCard: React.FC<{ fam: Family }> = ({ fam }) => {
         <div
           style={{
             height: 78,
-            background: fam.themeColor,
+            background: "#F6F0DE",
             borderBottom: `1px solid ${C.sumi}`,
             borderRadius: "6px 6px 0 0",
             position: "relative",

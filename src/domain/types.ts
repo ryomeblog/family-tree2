@@ -69,8 +69,6 @@ export interface Memory {
 export interface Family {
   id: string;
   name: string;
-  theme: "picture-book" | "scroll" | "modern";
-  themeColor: string;
   rootPersonId: PersonId;
   people: Record<PersonId, Person>;
   unions: Union[];

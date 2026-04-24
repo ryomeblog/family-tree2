@@ -15,14 +15,11 @@ import {
   F,
 } from "../components/ui";
 import { useFamilyStore, Family, Person } from "../stores/familyStore";
-import { YearPicker } from "../components/YearPicker";
-
-type ThemeKey = "picture-book" | "scroll" | "modern";
-const THEMES: { k: ThemeKey; label: string; color: string }[] = [
-  { k: "picture-book", label: "絵本", color: "#FFFEF8" },
-  { k: "scroll", label: "巻物", color: "#F3E6C9" },
-  { k: "modern", label: "近代", color: "#E2E6E3" },
-];
+import {
+  FuzzyDateInput,
+  fuzzyToParts,
+  partsToFuzzy,
+} from "../components/FuzzyDateInput";
 
 type Gender = "m" | "f" | "other" | "unknown";
 const GENDERS: { k: Gender; label: string }[] = [
@@ -31,12 +28,6 @@ const GENDERS: { k: Gender; label: string }[] = [
   { k: "other", label: "その他" },
   { k: "unknown", label: "不明" },
 ];
-
-const THEME_COLORS: Record<ThemeKey, string> = {
-  "picture-book": "#E8B8B2",
-  scroll: "#E8DFA0",
-  modern: "#C8D4B8",
-};
 
 export default function NewFamilyModal() {
   const nav = useNavigate();
@@ -48,9 +39,8 @@ export default function NewFamilyModal() {
   const [given, setGiven] = useState("");
   const [relation, setRelation] = useState("");
   const [gender, setGender] = useState<Gender>("m");
-  const [birthYear, setBirthYear] = useState<number | undefined>(undefined);
+  const [birth, setBirth] = useState(fuzzyToParts(undefined));
   const [birthPlace, setBirthPlace] = useState("");
-  const [theme, setTheme] = useState<ThemeKey>("picture-book");
 
   const slug = (v: string) =>
     v
@@ -70,18 +60,13 @@ export default function NewFamilyModal() {
       surname: surname.trim() || "—",
       given: given.trim() || "—",
       gender,
-      birth:
-        birthYear !== undefined
-          ? { kind: "year", y: birthYear }
-          : { kind: "unknown" },
+      birth: partsToFuzzy(birth),
       birthPlace: birthPlace || undefined,
       role: relation || undefined,
     };
     const fam: Family = {
       id: fid,
       name: familyName,
-      theme,
-      themeColor: THEME_COLORS[theme],
       rootPersonId: pid,
       generations: 1,
       lastUpdated: "たった今",
@@ -232,21 +217,6 @@ export default function NewFamilyModal() {
                       ))}
                     </Row>
                   </div>
-                  <div style={{ width: 220 }}>
-                    <Hand
-                      size={12}
-                      color={C.sub}
-                      bold
-                      style={{ display: "block", marginBottom: 6 }}
-                    >
-                      生年（西暦 / 和暦）
-                    </Hand>
-                    <YearPicker
-                      value={birthYear}
-                      onChange={setBirthYear}
-                      placeholder="年を選ぶ"
-                    />
-                  </div>
                   <Field
                     label="出生地"
                     value={birthPlace}
@@ -255,52 +225,17 @@ export default function NewFamilyModal() {
                     width={200}
                   />
                 </Row>
-              </div>
-
-              <div>
-                <Hand
-                  size={12}
-                  color={C.sub}
-                  bold
-                  style={{ display: "block", marginBottom: 10 }}
-                >
-                  テーマ
-                </Hand>
-                <Row gap={18}>
-                  {THEMES.map((t) => (
-                    <button
-                      key={t.k}
-                      type="button"
-                      onClick={() => setTheme(t.k)}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 6,
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 0,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 58,
-                          height: 58,
-                          borderRadius: 6,
-                          background: t.color,
-                          border: `2px solid ${theme === t.k ? C.shu : C.line}`,
-                          boxShadow:
-                            theme === t.k ? `2px 2px 0 ${C.shu}` : undefined,
-                        }}
-                      />
-                      <Hand size={11} color={theme === t.k ? C.shu : C.sub}>
-                        {t.label}
-                      </Hand>
-                    </button>
-                  ))}
+                <Row gap={12} wrap align="flex-start" style={{ marginTop: 12 }}>
+                  <div style={{ minWidth: 360, flex: 1 }}>
+                    <FuzzyDateInput
+                      label="生年月日"
+                      value={birth}
+                      onChange={setBirth}
+                    />
+                  </div>
                 </Row>
               </div>
+
             </Col>
           </div>
 

@@ -288,36 +288,6 @@ export default function SettingsPage() {
                 }
               />
               <Item
-                label="テーマ"
-                right={
-                  <Row gap={6}>
-                    {(
-                      [
-                        { k: "picture-book", label: "絵本" },
-                        { k: "scroll", label: "巻物" },
-                        { k: "modern", label: "近代" },
-                      ] as const
-                    ).map((t) => (
-                      <button
-                        key={t.k}
-                        type="button"
-                        onClick={() => store.setTheme(t.k)}
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          padding: 0,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Chip tone={store.theme === t.k ? "shu" : "mute"}>
-                          {t.label}
-                        </Chip>
-                      </button>
-                    ))}
-                  </Row>
-                }
-              />
-              <Item
                 label="バージョン"
                 right={<Hand size={12}>v0.1.0（2026-04-23）</Hand>}
               />
