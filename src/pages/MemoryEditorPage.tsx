@@ -22,6 +22,7 @@ import { deletePhoto } from "../storage/idb";
 import RichEditor from "../features/memory/RichEditor";
 import { YearPicker } from "../components/YearPicker";
 import { westernToEra } from "../domain/fuzzyDate";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 const ViewerChip: React.FC<{
   name: string;
@@ -86,6 +87,7 @@ export default function MemoryEditorPage() {
   const nav = useNavigate();
   const store = useFamilyStore();
   const family = store.families[fid];
+  const isMobile = useIsMobile();
 
   const existing: Memory | undefined = mid ? family?.memories[mid] : undefined;
   // 編集可否：閲覧可能な人物（書き手 ＋ 閲覧者に含まれる人物）なら誰でも編集可。
@@ -242,12 +244,20 @@ export default function MemoryEditorPage() {
       <div
         style={{
           display: "flex",
+          flexDirection: isMobile ? "column" : "row",
           height: "calc(100vh - 56px)",
-          overflow: "hidden",
+          overflow: isMobile ? "auto" : "hidden",
         }}
       >
         {/* Main */}
-        <div style={{ flex: 1, padding: "28px 40px", overflowY: "auto" }}>
+        <div
+          style={{
+            flex: 1,
+            padding: isMobile ? "20px 18px" : "28px 40px",
+            overflowY: isMobile ? "visible" : "auto",
+            minWidth: 0,
+          }}
+        >
           <Hand size={11} color={C.shu} style={{ letterSpacing: "0.25em" }}>
             ─── 思い出ノート
           </Hand>
@@ -566,14 +576,16 @@ export default function MemoryEditorPage() {
           </div>
         </div>
 
-        {/* Right: ViewerPicker */}
+        {/* Right: ViewerPicker（モバイルでは main の下にスタック） */}
         <div
           style={{
-            width: 320,
-            borderLeft: `1px solid ${C.line}`,
+            width: isMobile ? "100%" : 320,
+            flex: "none",
+            borderLeft: isMobile ? "none" : `1px solid ${C.line}`,
+            borderTop: isMobile ? `1px solid ${C.line}` : "none",
             background: "#FBF6E6",
-            padding: "24px 20px",
-            overflowY: "auto",
+            padding: isMobile ? "18px 18px 40px" : "24px 20px",
+            overflowY: isMobile ? "visible" : "auto",
           }}
         >
           <Hand size={11} color={C.shu} style={{ letterSpacing: "0.2em" }}>

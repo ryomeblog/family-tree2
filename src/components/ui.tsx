@@ -595,8 +595,8 @@ export const AppHeader: React.FC<{
         background: C.paper,
         display: "flex",
         alignItems: "center",
-        padding: "0 20px",
-        gap: 14,
+        padding: "0 14px",
+        gap: 12,
         flex: "none",
       }}
     >
@@ -610,13 +610,35 @@ export const AppHeader: React.FC<{
         ))}
       <Link
         to={homeTo}
-        style={{ textDecoration: "none", color: "inherit", display: "flex" }}
+        style={{
+          textDecoration: "none",
+          color: "inherit",
+          display: "flex",
+          flex: "none",
+        }}
       >
         <Hanko size={34} />
       </Link>
-      {label}
-      <div style={{ flex: 1 }} />
-      {right}
+      <div style={{ flex: "none" }}>{label}</div>
+      <div style={{ flex: 1, minWidth: 0 }} />
+      {right && (
+        <div
+          style={{
+            flex: "0 1 auto",
+            minWidth: 0,
+            overflowX: "auto",
+            overflowY: "hidden",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            // iOS: スクロールを滑らかに。スクロールバーの視覚ノイズは非表示。
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "none",
+          }}
+        >
+          {right}
+        </div>
+      )}
     </div>
   );
 };

@@ -30,17 +30,31 @@ export default defineConfig({
         theme_color: "#C0392B",
         lang: "ja",
         icons: [
+          // ラスター（Chrome on Android の PWA インストール基準を満たすため必須）
+          {
+            src: "./icons/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "./icons/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "./icons/maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+          // ベクター（拡大縮小に対応。ラスターの補助として提供）
           {
             src: "./icons/icon-512.svg",
             sizes: "any",
             type: "image/svg+xml",
             purpose: "any",
-          },
-          {
-            src: "./icons/icon-512.svg",
-            sizes: "any",
-            type: "image/svg+xml",
-            purpose: "maskable",
           },
         ],
       },

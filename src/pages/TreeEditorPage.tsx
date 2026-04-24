@@ -25,6 +25,7 @@ import {
   formatBirthYear,
 } from "../stores/familyStore";
 import { PhotoFromIdb } from "../features/photos/PhotoFromIdb";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 type ToolMode = "select" | "add" | "line" | "edit" | "search";
 const TOOLS: { k: ToolMode; i: string; t: string }[] = [
@@ -397,11 +398,13 @@ export default function TreeEditorPage() {
   const store = useFamilyStore();
   const family = store.families[fid];
 
+  const isMobile = useIsMobile();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lineFirst, setLineFirst] = useState<string | null>(null);
   const [mode, setMode] = useState<ToolMode>("select");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  // モバイルではキャンバスを確保したいのでデフォルトで閉じておく。
+  const [inspectorOpen, setInspectorOpen] = useState(!isMobile);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragging = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(
@@ -810,12 +813,13 @@ export default function TreeEditorPage() {
           )}
         </div>
 
-        {/* Inspector */}
+        {/* Inspector — モバイルではキャンバス上にオーバーレイ */}
         {inspectorOpen && (
           <Inspector
             person={selected}
             familyId={fid}
             onClose={() => setInspectorOpen(false)}
+            overlay={isMobile}
           />
         )}
       </div>
@@ -1012,12 +1016,21 @@ const Inspector: React.FC<{
   person: Person | undefined;
   familyId: string;
   onClose: () => void;
-}> = ({ person, familyId, onClose }) => (
+  overlay?: boolean;
+}> = ({ person, familyId, onClose, overlay }) => (
   <div
     style={{
-      width: 280,
+      // モバイルではキャンバス上にオーバーレイ表示（キャンバス幅を圧迫しない）
+      position: overlay ? "absolute" : "relative",
+      top: overlay ? 0 : undefined,
+      right: overlay ? 0 : undefined,
+      bottom: overlay ? 0 : undefined,
+      zIndex: overlay ? 30 : undefined,
+      width: overlay ? "min(320px, 92vw)" : 280,
+      maxWidth: "100%",
       background: C.paper,
       borderLeft: `1px solid ${C.line}`,
+      boxShadow: overlay ? "-8px 0 24px -12px rgba(0,0,0,0.35)" : undefined,
       padding: "20px 18px",
       display: "flex",
       flexDirection: "column",

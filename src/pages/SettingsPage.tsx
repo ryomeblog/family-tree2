@@ -158,7 +158,7 @@ export default function SettingsPage() {
         <Brush width={180} color={C.shuSoft} />
 
         <Row gap={32} style={{ marginTop: 20 }} align="flex-start" wrap>
-          <div style={{ flex: 1, minWidth: 420 }}>
+          <div style={{ flex: "1 1 320px", minWidth: 0, maxWidth: "100%" }}>
             <Section no="A." title="書き出し・取り込み">
               <Item
                 label="家系を書き出す（.ftree2）"
@@ -392,7 +392,7 @@ export default function SettingsPage() {
             </Section>
           </div>
 
-          <div style={{ width: 300, minWidth: 260 }}>
+          <div style={{ flex: "0 1 300px", minWidth: 0, width: "100%", maxWidth: 340 }}>
             <Section no="D." title="自分として見ている人物">
               <Hand size={11} color={C.pale}>
                 思い出の「閲覧者」フィルタに使用します。
