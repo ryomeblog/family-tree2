@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/family-tree2/dev-sw.js?dev-sw', { scope: '/family-tree2/', type: 'classic' })

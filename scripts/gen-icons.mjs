@@ -1,7 +1,7 @@
 // SVG アイコンを Playwright でラスタライズして PNG を生成する。
 // PWA のインストール基準（Chrome on Android）は少なくとも 1 枚の PNG 必須。
 import { chromium } from "playwright";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 

@@ -24,11 +24,17 @@ export default defineConfig({
         short_name: "家系図",
         description: "絵本のような家系図アプリ（端末内完結）",
         display: "standalone",
-        start_url: "./",
-        scope: "./",
+        // Android Chrome は相対パスだと解決に失敗する場合があるので絶対パスで明示する。
+        // base を変える場合はここも合わせて変更すること。
+        start_url: "/family-tree2/",
+        scope: "/family-tree2/",
+        id: "/family-tree2/",
+        orientation: "portrait",
         background_color: "#FFFEF8",
         theme_color: "#C0392B",
         lang: "ja",
+        dir: "ltr",
+        categories: ["lifestyle", "productivity"],
         icons: [
           // ラスター（Chrome on Android の PWA インストール基準を満たすため必須）
           {
@@ -71,7 +77,14 @@ export default defineConfig({
           },
         ],
       },
-      devOptions: { enabled: false },
+      // dev 環境でも SW とマニフェストを配信する。Chrome DevTools の
+      // "Application → Manifest / Service Worker" で動作確認できる。
+      // 端末からインストールを試すには HTTPS が必須（`npm run dev:https`）。
+      devOptions: {
+        enabled: true,
+        type: "module",
+        navigateFallback: "/family-tree2/index.html",
+      },
     }),
   ],
 });
