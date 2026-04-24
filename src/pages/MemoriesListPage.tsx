@@ -13,6 +13,7 @@ import {
   C,
 } from "../components/ui";
 import { PhotoFromIdb } from "../features/photos/PhotoFromIdb";
+import { useIsMobile } from "../hooks/useMediaQuery";
 import { useFamilyStore, Memory, formatPerson } from "../stores/familyStore";
 import { canViewMemory } from "../domain/selectors";
 import SearchPopover from "../modals/SearchPopover";
@@ -67,9 +68,9 @@ const Card: React.FC<{
   protagonistName: string;
   viewerNames: string;
 }> = ({ memory, familyId, authorName, protagonistName, viewerNames }) => (
-  <Row gap={20} align="flex-start">
-    <Col gap={2} style={{ width: 90, paddingTop: 6, flex: "none" }}>
-      <Title size={22}>{memory.year}</Title>
+  <Row gap={14} align="flex-start">
+    <Col gap={2} style={{ width: 64, paddingTop: 6, flex: "none" }}>
+      <Title size={18}>{memory.year}</Title>
       {memory.era && (
         <Hand size={10} color={C.pale}>
           {memory.era}
@@ -171,6 +172,7 @@ export default function MemoriesListPage() {
   const { fid = "yamada" } = useParams();
   const store = useFamilyStore();
   const family = store.families[fid];
+  const isMobile = useIsMobile();
   const [protagonist, setProtagonist] = useState("全員");
   const [author, setAuthor] = useState("全員");
   const [yearFilter, setYearFilter] = useState("すべて");
@@ -228,14 +230,15 @@ export default function MemoriesListPage() {
         showFamilyMenu
         familyId={fid}
         right={
-          <Row gap={10}>
+          <Row gap={8}>
             <div style={{ position: "relative" }}>
               <SketchBtn
                 size="sm"
                 icon="⌕"
                 onClick={() => setSearchOpen((v) => !v)}
+                title="検索"
               >
-                検索
+                {isMobile ? "" : "検索"}
               </SketchBtn>
               {searchOpen && (
                 <SearchPopover
@@ -245,18 +248,29 @@ export default function MemoriesListPage() {
                 />
               )}
             </div>
-            <SketchBtn size="sm" icon="家" to={`/family/${fid}/tree`}>
-              家系図
+            <SketchBtn
+              size="sm"
+              icon="家"
+              to={`/family/${fid}/tree`}
+              title="家系図"
+            >
+              {isMobile ? "" : "家系図"}
             </SketchBtn>
-            <SketchBtn size="sm" primary icon="筆" to={`/family/${fid}/memory/new`}>
-              思い出を書く
+            <SketchBtn
+              size="sm"
+              primary
+              icon="筆"
+              to={`/family/${fid}/memory/new`}
+              title="思い出を書く"
+            >
+              {isMobile ? "" : "思い出を書く"}
             </SketchBtn>
           </Row>
         }
       />
       <div
         style={{
-          padding: "24px 40px",
+          padding: isMobile ? "16px 14px" : "24px 40px",
           height: "calc(100vh - 56px)",
           overflowY: "auto",
         }}

@@ -165,9 +165,14 @@ const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
         height: "100vh",
         background: C.tatami,
         position: "relative",
-        display: "grid",
-        placeItems: "center",
+        // grid+auto 列だと子の width がそのままセル幅になり、モバイルで溢れる。
+        // flex 列で中央寄せしつつ子は container 幅に収まるように。
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
         padding: 16,
+        overflow: "auto",
       }}
     >
       <Grid opacity={0.08} />

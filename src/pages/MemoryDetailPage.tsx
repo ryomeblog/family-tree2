@@ -16,6 +16,7 @@ import {
 import { useFamilyStore, formatPerson } from "../stores/familyStore";
 import { canViewMemory } from "../domain/selectors";
 import { PhotoFromIdb } from "../features/photos/PhotoFromIdb";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 const MemoryBody: React.FC<{ body: string }> = ({ body }) => {
   const isHtml = /<\w+/.test(body);
@@ -88,6 +89,7 @@ export default function MemoryDetailPage() {
   const { fid = "yamada", mid = "m_rose" } = useParams();
   const nav = useNavigate();
   const store = useFamilyStore();
+  const isMobile = useIsMobile();
   const family = store.families[fid];
   const memory = family?.memories[mid];
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -199,14 +201,14 @@ export default function MemoryDetailPage() {
         showFamilyMenu
         familyId={fid}
         right={
-          <Row gap={10}>
+          <Row gap={8}>
             <SketchBtn
               size="sm"
               to={prev ? `/family/${fid}/memory/${prev.id}` : "#"}
               disabled={!prev}
               title={prev ? `← ${prev.year}年 ${prev.title}` : "これが最初の思い出です"}
             >
-              ‹ 前へ
+              {isMobile ? "‹" : "‹ 前へ"}
             </SketchBtn>
             <SketchBtn
               size="sm"
@@ -214,14 +216,15 @@ export default function MemoryDetailPage() {
               disabled={!next}
               title={next ? `${next.year}年 ${next.title} →` : "これが最新の思い出です"}
             >
-              次へ ›
+              {isMobile ? "›" : "次へ ›"}
             </SketchBtn>
             <SketchBtn
               size="sm"
               icon="筆"
               to={`/family/${fid}/memory/${memory.id}/edit`}
+              title="編集"
             >
-              編集
+              {isMobile ? "" : "編集"}
             </SketchBtn>
           </Row>
         }
@@ -229,7 +232,7 @@ export default function MemoryDetailPage() {
       <div
         ref={scrollRef}
         style={{
-          padding: "40px 60px",
+          padding: isMobile ? "20px 18px" : "40px 60px",
           height: "calc(100vh - 56px)",
           overflowY: "auto",
           background: C.paper,

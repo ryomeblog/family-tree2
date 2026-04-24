@@ -181,7 +181,13 @@ export default function ImportPage() {
   return (
     <BarePage>
       <AppHeader back backTo="/home" />
-      <div style={{ padding: "28px 48px", height: "calc(100vh - 56px)", overflowY: "auto" }}>
+      <div
+        style={{
+          padding: "clamp(16px, 4vw, 28px) clamp(14px, 4vw, 48px)",
+          height: "calc(100vh - 56px)",
+          overflowY: "auto",
+        }}
+      >
         <Hand size={11} color={C.shu} style={{ letterSpacing: "0.2em" }}>
           ─── IMPORT .ftree2
         </Hand>

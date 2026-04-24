@@ -61,9 +61,10 @@ const Item: React.FC<{
   <Row
     justify="space-between"
     align="flex-start"
+    wrap
     style={{ padding: "10px 0", borderTop: `1px dashed ${C.line}`, gap: 12 }}
   >
-    <Col gap={2} style={{ flex: 1 }}>
+    <Col gap={2} style={{ flex: "1 1 200px", minWidth: 0 }}>
       <Hand size={13} color={C.sumi} bold>
         {label}
       </Hand>
@@ -73,7 +74,7 @@ const Item: React.FC<{
         </Hand>
       )}
     </Col>
-    <div style={{ flex: "none" }}>{right}</div>
+    <div style={{ flex: "0 1 auto", maxWidth: "100%" }}>{right}</div>
   </Row>
 );
 
@@ -146,7 +147,7 @@ export default function SettingsPage() {
       <AppHeader back backTo="/home" />
       <div
         style={{
-          padding: "28px 48px",
+          padding: "clamp(16px, 4vw, 28px) clamp(14px, 4vw, 48px)",
           height: "calc(100vh - 56px)",
           overflowY: "auto",
         }}
@@ -164,7 +165,7 @@ export default function SettingsPage() {
                 label="家系を書き出す（.ftree2）"
                 hint="書き出す家系を選んでから実行。家系＋画像を一つの ZIP にまとめます。"
                 right={
-                  <Row gap={8}>
+                  <Row gap={8} wrap justify="flex-end">
                     <select
                       value={exportFamilyId}
                       onChange={(e) => setExportFamilyId(e.target.value)}
@@ -173,6 +174,7 @@ export default function SettingsPage() {
                         fontSize: 13,
                         padding: "6px 10px",
                         minHeight: 30,
+                        maxWidth: "100%",
                         border: `1px solid ${C.sumi}`,
                         borderRadius: 3,
                         boxShadow: `2px 2px 0 ${C.sumi}`,

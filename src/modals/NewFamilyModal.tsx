@@ -20,6 +20,7 @@ import {
   fuzzyToParts,
   partsToFuzzy,
 } from "../components/FuzzyDateInput";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 type Gender = "m" | "f" | "other" | "unknown";
 const GENDERS: { k: Gender; label: string }[] = [
@@ -33,6 +34,7 @@ export default function NewFamilyModal() {
   const nav = useNavigate();
   const addFamily = useFamilyStore((s) => s.addFamily);
   const showToast = useFamilyStore((s) => s.showToast);
+  const isMobile = useIsMobile();
 
   const [familyName, setFamilyName] = useState("");
   const [surname, setSurname] = useState("");
@@ -87,21 +89,26 @@ export default function NewFamilyModal() {
           height: "100vh",
           background: C.tatami,
           position: "relative",
-          display: "grid",
-          placeItems: "center",
-          padding: 16,
+          // モバイルでは grid-auto 配置だとセル幅が子の width に合ってしまい
+          // width: 640 がそのまま適用されて溢れる。flex col で子を引き延ばす。
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: isMobile ? "stretch" : "center",
+          padding: isMobile ? 0 : 16,
         }}
       >
         <Grid opacity={0.08} />
         <div
           style={{
-            width: 640,
+            width: isMobile ? "100%" : 640,
             maxWidth: "100%",
-            maxHeight: "calc(100vh - 32px)",
+            flex: isMobile ? 1 : "none",
+            maxHeight: isMobile ? "100vh" : "calc(100vh - 32px)",
             background: C.paper,
-            border: `2px solid ${C.sumi}`,
-            borderRadius: 6,
-            boxShadow: "0 40px 80px -24px rgba(0,0,0,0.45)",
+            border: isMobile ? "none" : `2px solid ${C.sumi}`,
+            borderRadius: isMobile ? 0 : 6,
+            boxShadow: isMobile ? "none" : "0 40px 80px -24px rgba(0,0,0,0.45)",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
@@ -109,7 +116,10 @@ export default function NewFamilyModal() {
         >
           <Row
             justify="space-between"
-            style={{ padding: "24px 32px 0 32px", flex: "none" }}
+            style={{
+              padding: isMobile ? "18px 18px 0 18px" : "24px 32px 0 32px",
+              flex: "none",
+            }}
           >
             <div>
               <Hand size={11} color={C.shu} style={{ letterSpacing: "0.25em" }}>
@@ -122,13 +132,13 @@ export default function NewFamilyModal() {
             </div>
             <Hanko size={48} />
           </Row>
-          <div style={{ padding: "0 32px" }}>
+          <div style={{ padding: isMobile ? "0 18px" : "0 32px" }}>
             <Brush width="100%" color={C.shuSoft} />
           </div>
 
           <div
             style={{
-              padding: "18px 32px",
+              padding: isMobile ? "16px 18px" : "18px 32px",
               overflowY: "auto",
               flex: 1,
               minHeight: 0,
@@ -242,8 +252,9 @@ export default function NewFamilyModal() {
           <Row
             justify="flex-end"
             gap={10}
+            wrap
             style={{
-              padding: "14px 32px",
+              padding: isMobile ? "12px 16px" : "14px 32px",
               borderTop: `1px solid ${C.line}`,
               background: "#FBF6E6",
               flex: "none",

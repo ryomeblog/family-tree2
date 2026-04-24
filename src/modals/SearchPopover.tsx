@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Hand, Title, Row, C, F } from "../components/ui";
 import { useFamilyStore, formatPerson } from "../stores/familyStore";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 type Hit =
   | { kind: "person"; id: string; label: string; hint?: string }
@@ -29,6 +30,7 @@ export default function SearchPopover({
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -98,22 +100,49 @@ export default function SearchPopover({
     else nav(`/family/${familyId}/memory/${h.id}`);
   };
 
-  const defaultStyle: React.CSSProperties = {
-    position: "absolute",
-    top: "calc(100% + 8px)",
-    right: 0,
-    width: 360,
-    maxWidth: "calc(100vw - 24px)",
-    background: C.paper,
-    border: `1.5px solid ${C.sumi}`,
-    borderRadius: 4,
-    boxShadow: `4px 4px 0 ${C.sumi}, 0 20px 40px -15px rgba(0,0,0,0.35)`,
-    overflow: "hidden",
-    zIndex: 40,
-  };
+  // デスクトップ：ボタン直下に 360px のドロップダウン。
+  // モバイル：ヘッダ直下に viewport 全幅で貼り付く固定シート。高さは画面下端まで
+  // 使い、家系図のズーム/ミニマップは非表示にして被り衝突を避ける（TreeEditor 側）。
+  // 親の overflow-x から逃げるため position: fixed が必要。
+  const defaultStyle: React.CSSProperties = isMobile
+    ? {
+        position: "fixed",
+        top: 56,
+        left: 8,
+        right: 8,
+        bottom: 8,
+        background: C.paper,
+        border: `1.5px solid ${C.sumi}`,
+        borderRadius: 4,
+        boxShadow: `4px 4px 0 ${C.sumi}, 0 20px 40px -15px rgba(0,0,0,0.35)`,
+        overflow: "hidden",
+        zIndex: 60,
+        display: "flex",
+        flexDirection: "column",
+      }
+    : {
+        position: "absolute",
+        top: "calc(100% + 8px)",
+        right: 0,
+        width: 360,
+        maxWidth: "calc(100vw - 24px)",
+        background: C.paper,
+        border: `1.5px solid ${C.sumi}`,
+        borderRadius: 4,
+        boxShadow: `4px 4px 0 ${C.sumi}, 0 20px 40px -15px rgba(0,0,0,0.35)`,
+        overflow: "hidden",
+        zIndex: 40,
+      };
   return (
     <div ref={wrapRef} style={containerStyle ?? defaultStyle}>
-      <div style={{ padding: 10, borderBottom: `1px solid ${C.line}`, background: "#FBF6E6" }}>
+      <div
+        style={{
+          padding: 10,
+          borderBottom: `1px solid ${C.line}`,
+          background: "#FBF6E6",
+          flex: "none",
+        }}
+      >
         <input
           ref={inputRef}
           value={q}
@@ -139,7 +168,14 @@ export default function SearchPopover({
           }}
         />
       </div>
-      <div style={{ maxHeight: 320, overflowY: "auto", padding: 4 }}>
+      <div
+        style={{
+          maxHeight: isMobile ? undefined : 320,
+          flex: isMobile ? 1 : undefined,
+          overflowY: "auto",
+          padding: 4,
+        }}
+      >
         {hits.length === 0 ? (
           <div style={{ padding: 16, textAlign: "center" }}>
             <Hand size={12} color={C.pale}>
@@ -202,6 +238,7 @@ export default function SearchPopover({
           padding: "8px 12px",
           borderTop: `1px solid ${C.line}`,
           background: "#FBF6E6",
+          flex: "none",
         }}
       >
         <Hand size={10.5} color={C.pale}>

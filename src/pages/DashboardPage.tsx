@@ -13,6 +13,7 @@ import {
   F,
 } from "../components/ui";
 import { useFamilyStore, Family } from "../stores/familyStore";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 const NAV = [
   { i: "家", t: "家系図", to: "/home", active: true },
@@ -20,69 +21,128 @@ const NAV = [
   { i: "設", t: "設定", to: "/settings" },
 ];
 
-const Side: React.FC = () => (
-  <div
-    style={{
-      width: 200,
-      background: "#F6F0DE",
-      borderRight: `1px solid ${C.line}`,
-      padding: "24px 16px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 6,
-      flex: "none",
-    }}
-  >
-    <Row gap={10} style={{ marginBottom: 20, padding: "0 4px" }}>
-      <Hanko size={32} />
-      <Title size={14}>家系図</Title>
-    </Row>
-    {NAV.map((n) => (
-      <Link
-        key={n.t}
-        to={n.to}
-        style={{ textDecoration: "none", color: "inherit" }}
-      >
+const Side: React.FC<{
+  mobile: boolean;
+  open: boolean;
+  onClose: () => void;
+}> = ({ mobile, open, onClose }) => {
+  // モバイルではドロワー（オーバーレイ）。閉じないと main のボタンが押せないので
+  // 背景タップで閉じられるようにする。
+  if (mobile && !open) return null;
+  return (
+    <>
+      {mobile && (
         <div
+          onClick={onClose}
           style={{
-            padding: "8px 12px",
-            borderRadius: 4,
-            background: n.active ? "#FFFEF8" : "transparent",
-            border: n.active ? `1px solid ${C.sumi}` : `1px solid transparent`,
-            boxShadow: n.active ? `2px 2px 0 ${C.sumi}` : undefined,
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            cursor: "pointer",
+            position: "fixed",
+            inset: 0,
+            background: "rgba(26,25,21,0.32)",
+            zIndex: 40,
           }}
+        />
+      )}
+      <div
+        style={{
+          position: mobile ? "fixed" : "relative",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          zIndex: mobile ? 50 : undefined,
+          width: mobile ? 240 : 200,
+          maxWidth: "80vw",
+          background: "#F6F0DE",
+          borderRight: `1px solid ${C.line}`,
+          padding: "24px 16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          flex: "none",
+          boxShadow: mobile
+            ? "8px 0 24px -8px rgba(0,0,0,0.35)"
+            : undefined,
+        }}
+      >
+        <Row
+          justify="space-between"
+          align="center"
+          style={{ marginBottom: 20, padding: "0 4px" }}
         >
-          <span
-            style={{
-              fontFamily: F.mincho,
-              fontSize: 14,
-              color: n.active ? C.shu : C.sub,
-              width: 22,
-              height: 22,
-              borderRadius: 3,
-              border: `1px solid ${n.active ? C.shu : C.pale}`,
-              display: "grid",
-              placeItems: "center",
-            }}
+          <Row gap={10}>
+            <Hanko size={32} />
+            <Title size={14}>家系図</Title>
+          </Row>
+          {mobile && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="メニューを閉じる"
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontFamily: F.mincho,
+                fontSize: 22,
+                color: C.sub,
+                width: 40,
+                height: 40,
+                borderRadius: 4,
+              }}
+            >
+              ×
+            </button>
+          )}
+        </Row>
+        {NAV.map((n) => (
+          <Link
+            key={n.t}
+            to={n.to}
+            onClick={onClose}
+            style={{ textDecoration: "none", color: "inherit" }}
           >
-            {n.i}
-          </span>
-          <Hand size={13} color={n.active ? C.sumi : C.sub} bold={n.active}>
-            {n.t}
-          </Hand>
-        </div>
-      </Link>
-    ))}
-    <div style={{ flex: 1 }} />
-    <Hand size={10} color={C.pale}>
-      v0.1.0 ／ 端末のみ
-    </Hand>
-  </div>
-);
+            <div
+              style={{
+                padding: "10px 12px",
+                minHeight: 44,
+                borderRadius: 4,
+                background: n.active ? "#FFFEF8" : "transparent",
+                border: n.active ? `1px solid ${C.sumi}` : `1px solid transparent`,
+                boxShadow: n.active ? `2px 2px 0 ${C.sumi}` : undefined,
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                cursor: "pointer",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: F.mincho,
+                  fontSize: 14,
+                  color: n.active ? C.shu : C.sub,
+                  width: 22,
+                  height: 22,
+                  borderRadius: 3,
+                  border: `1px solid ${n.active ? C.shu : C.pale}`,
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                {n.i}
+              </span>
+              <Hand size={13} color={n.active ? C.sumi : C.sub} bold={n.active}>
+                {n.t}
+              </Hand>
+            </div>
+          </Link>
+        ))}
+        <div style={{ flex: 1 }} />
+        <Hand size={10} color={C.pale}>
+          v0.1.0 ／ 端末のみ
+        </Hand>
+      </div>
+    </>
+  );
+};
 
 const FamilyCard: React.FC<{ fam: Family }> = ({ fam }) => {
   const nav = useNavigate();
@@ -260,44 +320,82 @@ function menuBtnStyle(danger = false): React.CSSProperties {
 
 export default function DashboardPage() {
   const families = useFamilyStore((s) => Object.values(s.families));
+  const isMobile = useIsMobile();
+  const [sideOpen, setSideOpen] = useState(false);
 
   return (
     <BarePage>
       <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-        <Side />
+        <Side mobile={isMobile} open={sideOpen} onClose={() => setSideOpen(false)} />
         <div
           style={{
             flex: 1,
             position: "relative",
-            padding: "24px 36px",
+            padding: isMobile ? "14px 16px" : "24px 36px",
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",
           }}
         >
           <Grid opacity={0.05} />
+          {/* モバイル用：サイドメニュー呼び出しボタン */}
+          {isMobile && (
+            <Row
+              align="center"
+              style={{ marginBottom: 10, flex: "none" }}
+              gap={10}
+            >
+              <button
+                type="button"
+                onClick={() => setSideOpen(true)}
+                aria-label="メニューを開く"
+                style={{
+                  width: 44,
+                  height: 44,
+                  border: `1px solid ${C.sumi}`,
+                  borderRadius: 4,
+                  background: C.paper,
+                  fontFamily: F.mincho,
+                  fontSize: 18,
+                  cursor: "pointer",
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                ☰
+              </button>
+              <Hanko size={32} />
+              <Title size={16}>家系図</Title>
+            </Row>
+          )}
           <Row
             justify="space-between"
-            align="flex-end"
-            style={{ marginBottom: 8, flex: "none" }}
+            align={isMobile ? "stretch" : "flex-end"}
+            style={{
+              marginBottom: 8,
+              flex: "none",
+              flexDirection: isMobile ? "column" : "row",
+              gap: isMobile ? 12 : 0,
+            } as React.CSSProperties}
+            gap={10}
           >
             <div>
               <Hand size={12} color={C.shu} style={{ letterSpacing: "0.2em" }}>
                 ─── MY FAMILY TREES
               </Hand>
-              <Title size={28}>あなたの家系</Title>
+              <Title size={isMobile ? 22 : 28}>あなたの家系</Title>
               <Hand size={12} color={C.sub}>
                 {families.length} つの家系が端末に保存されています
               </Hand>
             </div>
-            <Row gap={10}>
-              <SketchBtn icon="↥" to="/import">
+            <Row gap={10} wrap>
+              <SketchBtn icon="↥" size={isMobile ? "sm" : "md"} to="/import">
                 ファイル取り込み
               </SketchBtn>
-              <SketchBtn icon="開" to="/open">
+              <SketchBtn icon="開" size={isMobile ? "sm" : "md"} to="/open">
                 開く
               </SketchBtn>
-              <SketchBtn primary icon="＋" to="/new">
+              <SketchBtn primary icon="＋" size={isMobile ? "sm" : "md"} to="/new">
                 新規
               </SketchBtn>
             </Row>

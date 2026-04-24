@@ -30,6 +30,7 @@ import {
   fuzzyToParts,
   partsToFuzzy,
 } from "../components/FuzzyDateInput";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 const GENDERS: { k: Gender; label: string }[] = [
   { k: "m", label: "男性" },
@@ -53,6 +54,7 @@ export default function PersonForm({
   const store = useFamilyStore();
   const family = store.families[familyId];
   const existing = personId ? family?.people[personId] : undefined;
+  const isMobile = useIsMobile();
 
   const [surname, setSurname] = useState(existing?.surname ?? "");
   const [given, setGiven] = useState(existing?.given ?? "");
@@ -142,13 +144,15 @@ export default function PersonForm({
   return (
     <div
       style={{
-        width: 720,
-        maxWidth: "calc(100vw - 32px)",
-        maxHeight: "calc(100vh - 120px)",
+        width: isMobile ? "100%" : 720,
+        maxWidth: isMobile ? "100%" : "calc(100vw - 32px)",
+        maxHeight: isMobile ? "100%" : "calc(100vh - 120px)",
+        height: isMobile ? "100%" : undefined,
+        flex: isMobile ? 1 : "none",
         background: C.paper,
-        border: `2px solid ${C.sumi}`,
-        borderRadius: 6,
-        boxShadow: "0 40px 80px -24px rgba(0,0,0,0.45)",
+        border: isMobile ? "none" : `2px solid ${C.sumi}`,
+        borderRadius: isMobile ? 0 : 6,
+        boxShadow: isMobile ? "none" : "0 40px 80px -24px rgba(0,0,0,0.45)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -157,7 +161,7 @@ export default function PersonForm({
       <Row
         justify="space-between"
         style={{
-          padding: "20px 28px 14px",
+          padding: isMobile ? "14px 16px" : "20px 28px 14px",
           borderBottom: `1px solid ${C.line}`,
           flex: "none",
         }}
@@ -166,13 +170,14 @@ export default function PersonForm({
           <Hand size={11} color={C.shu} style={{ letterSpacing: "0.25em" }}>
             ─── {mode === "add" ? "NEW PERSON" : "EDIT PERSON"}
           </Hand>
-          <Title size={22}>
+          <Title size={isMobile ? 18 : 22}>
             {mode === "add" ? "人物を追加" : "人物を編集"}
           </Title>
         </div>
         <button
           type="button"
           onClick={onClose}
+          aria-label="閉じる"
           style={{
             background: "none",
             border: "none",
@@ -180,6 +185,9 @@ export default function PersonForm({
             fontSize: 22,
             color: C.pale,
             cursor: "pointer",
+            width: 44,
+            height: 44,
+            flex: "none",
           }}
         >
           ×
@@ -188,7 +196,7 @@ export default function PersonForm({
 
       <div
         style={{
-          padding: "20px 28px",
+          padding: isMobile ? "16px 16px" : "20px 28px",
           overflowY: "auto",
           overflowX: "hidden",
           flex: 1,
@@ -196,7 +204,10 @@ export default function PersonForm({
         }}
       >
         <Row gap={24} align="flex-start" wrap>
-          <Col gap={10} style={{ width: 180, alignItems: "center" }}>
+          <Col
+            gap={10}
+            style={{ width: isMobile ? "100%" : 180, alignItems: "center" }}
+          >
             <PhotoFromIdb
               id={portrait}
               size={160}
@@ -339,8 +350,9 @@ export default function PersonForm({
 
       <Row
         justify={mode === "edit" ? "space-between" : "flex-end"}
+        wrap
         style={{
-          padding: "14px 28px",
+          padding: isMobile ? "12px 14px" : "14px 28px",
           borderTop: `1px solid ${C.line}`,
           background: "#FBF6E6",
           flex: "none",
@@ -351,7 +363,7 @@ export default function PersonForm({
             この人物を削除
           </SketchBtn>
         )}
-        <Row gap={10}>
+        <Row gap={10} wrap>
           <SketchBtn onClick={onClose}>キャンセル</SketchBtn>
           {mode === "add" && (
             <SketchBtn onClick={() => save(true)}>保存して続けて追加</SketchBtn>

@@ -225,18 +225,27 @@ export default function MemoryEditorPage() {
         showFamilyMenu
         familyId={fid}
         right={
-          <Row gap={10}>
-            <Hand size={11} color={C.shu}>
-              ● 下書き中
-            </Hand>
+          <Row gap={8}>
+            {!isMobile && (
+              <Hand size={11} color={C.shu}>
+                ● 下書き中
+              </Hand>
+            )}
             <SketchBtn
               size="sm"
               onClick={() => store.showToast("ok", "下書きを保存しました")}
+              title="下書き保存"
             >
-              下書き保存
+              {isMobile ? "下書" : "下書き保存"}
             </SketchBtn>
-            <SketchBtn size="sm" primary icon="✓" onClick={save}>
-              保存
+            <SketchBtn
+              size="sm"
+              primary
+              icon="✓"
+              onClick={save}
+              title="保存"
+            >
+              {isMobile ? "" : "保存"}
             </SketchBtn>
           </Row>
         }

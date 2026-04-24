@@ -29,12 +29,14 @@ import {
 } from "../domain/selectors";
 import { formatFuzzyDate } from "../domain/fuzzyDate";
 import { PhotoFromIdb } from "../features/photos/PhotoFromIdb";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 export default function PersonDetailPage() {
   const { fid = "yamada", pid = "" } = useParams();
   const nav = useNavigate();
   const store = useFamilyStore();
   const family = store.families[fid];
+  const isMobile = useIsMobile();
   const person = family?.people[pid];
 
   if (!family || !person) {
@@ -85,29 +87,43 @@ export default function PersonDetailPage() {
               size="sm"
               icon="筆"
               to={`/family/${fid}/person/${pid}/edit`}
+              title="編集"
             >
-              編集
+              {isMobile ? "" : "編集"}
             </SketchBtn>
-            <SketchBtn size="sm" icon="家" to={`/family/${fid}/tree`}>
-              家系図で見る
+            <SketchBtn
+              size="sm"
+              icon="家"
+              to={`/family/${fid}/tree`}
+              title="家系図で見る"
+            >
+              {isMobile ? "" : "家系図で見る"}
             </SketchBtn>
           </Row>
         }
       />
 
-      <div style={{ display: "flex", height: "calc(100vh - 56px)" }}>
-        {/* Left: portrait / role */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          height: "calc(100vh - 56px)",
+          overflowY: isMobile ? "auto" : "hidden",
+        }}
+      >
+        {/* Left: portrait / role — モバイルでは幅 100% で上段に */}
         <div
           style={{
-            width: 300,
-            borderRight: `1px solid ${C.line}`,
+            width: isMobile ? "100%" : 300,
+            borderRight: isMobile ? "none" : `1px solid ${C.line}`,
+            borderBottom: isMobile ? `1px solid ${C.line}` : "none",
             background: "#FBF6E6",
-            padding: "28px 24px",
+            padding: isMobile ? "18px 16px" : "28px 24px",
             display: "flex",
             flexDirection: "column",
             gap: 14,
             flex: "none",
-            overflowY: "auto",
+            overflowY: isMobile ? "visible" : "auto",
           }}
         >
           <PhotoFromIdb id={person.portrait} size={240} rounded={6} />
@@ -161,7 +177,14 @@ export default function PersonDetailPage() {
         </div>
 
         {/* Center: notes + memories */}
-        <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}>
+        <div
+          style={{
+            flex: 1,
+            padding: isMobile ? "18px 16px" : "28px 32px",
+            overflowY: isMobile ? "visible" : "auto",
+            minWidth: 0,
+          }}
+        >
           <Hand size={11} color={C.shu} style={{ letterSpacing: "0.2em" }}>
             ─── ことの流れ
           </Hand>
@@ -275,15 +298,16 @@ export default function PersonDetailPage() {
           </div>
         </div>
 
-        {/* Right: family sidebar */}
+        {/* Right: family sidebar — モバイルでは下段に積む */}
         <div
           style={{
-            width: 240,
-            borderLeft: `1px solid ${C.line}`,
+            width: isMobile ? "100%" : 240,
+            borderLeft: isMobile ? "none" : `1px solid ${C.line}`,
+            borderTop: isMobile ? `1px solid ${C.line}` : "none",
             background: C.paper,
-            padding: "24px 18px",
+            padding: isMobile ? "18px 16px 40px" : "24px 18px",
             flex: "none",
-            overflowY: "auto",
+            overflowY: isMobile ? "visible" : "auto",
           }}
         >
           <Hand size={11} color={C.shu} style={{ letterSpacing: "0.2em" }}>

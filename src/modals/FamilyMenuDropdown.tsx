@@ -185,6 +185,13 @@ export default function FamilyMenuDropdown({
         ))}
         <Divider />
         <MenuRow
+          icon="帖"
+          label="思い出ノート"
+          to={`/family/${familyId}/memories`}
+          onClick={onNavigate}
+        />
+        <Divider />
+        <MenuRow
           icon="+"
           label="新しい家系を作る"
           to="/new"

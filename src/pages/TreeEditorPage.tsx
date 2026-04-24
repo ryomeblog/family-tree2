@@ -474,6 +474,59 @@ export default function TreeEditorPage() {
   const onCanvasMouseUp = () => {
     dragging.current = null;
   };
+  // モバイル／タブレット向けのタッチドラッグ。単指で pan、2 指でピンチズーム。
+  // 2 指ピンチのための初期距離を持つ。
+  const pinch = useRef<{ startDist: number; startZoom: number } | null>(null);
+  const touchDist = (t: React.TouchList) => {
+    const dx = t[0].clientX - t[1].clientX;
+    const dy = t[0].clientY - t[1].clientY;
+    return Math.hypot(dx, dy);
+  };
+  const onCanvasTouchStart = (e: React.TouchEvent) => {
+    if (mode !== "select") return;
+    if (e.touches.length === 1) {
+      dragging.current = {
+        startX: e.touches[0].clientX,
+        startY: e.touches[0].clientY,
+        originX: pan.x,
+        originY: pan.y,
+      };
+    } else if (e.touches.length === 2) {
+      dragging.current = null;
+      pinch.current = { startDist: touchDist(e.touches), startZoom: zoom };
+    }
+  };
+  const onCanvasTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinch.current) {
+      e.preventDefault();
+      const d = touchDist(e.touches);
+      const ratio = d / pinch.current.startDist;
+      setZoom(Math.max(0.4, Math.min(1.8, pinch.current.startZoom * ratio)));
+      return;
+    }
+    if (!dragging.current || e.touches.length !== 1) return;
+    // ブラウザのネイティブスクロール/プルリフレッシュを抑制してキャンバス操作を優先。
+    if (e.cancelable) e.preventDefault();
+    setPan({
+      x: dragging.current.originX + (e.touches[0].clientX - dragging.current.startX),
+      y: dragging.current.originY + (e.touches[0].clientY - dragging.current.startY),
+    });
+  };
+  const onCanvasTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length === 0) {
+      dragging.current = null;
+      pinch.current = null;
+    } else if (e.touches.length === 1) {
+      pinch.current = null;
+      // 2指→1指に戻ったとき pan 起点を再取得
+      dragging.current = {
+        startX: e.touches[0].clientX,
+        startY: e.touches[0].clientY,
+        originX: pan.x,
+        originY: pan.y,
+      };
+    }
+  };
   const onWheel = (e: React.WheelEvent) => {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
@@ -519,23 +572,51 @@ export default function TreeEditorPage() {
         showFamilyMenu
         familyId={fid}
         right={
-          <Row gap={10}>
-            {store.dirty && (
+          <Row gap={8}>
+            {store.dirty && !isMobile && (
               <Hand size={11} color={C.shu}>
                 ● 未保存の変更あり
               </Hand>
             )}
-            <SketchBtn size="sm" icon="帖" to={`/family/${fid}/memories`}>
-              思い出ノート
+            {/* 思い出ノート / 画像を保存 は幅が足りない mobile では出さない。
+                思い出ノートは AppHeader の 家系名 ▾ ドロップダウンからアクセス可。
+                画像を保存はモバイルでは需要が低い想定。 */}
+            {!isMobile && (
+              <SketchBtn
+                size="sm"
+                icon="帖"
+                to={`/family/${fid}/memories`}
+                title="思い出ノート"
+              >
+                思い出ノート
+              </SketchBtn>
+            )}
+            {!isMobile && (
+              <SketchBtn
+                size="sm"
+                icon="↓"
+                onClick={onExport}
+                title="画像を保存"
+              >
+                画像を保存
+              </SketchBtn>
+            )}
+            <SketchBtn
+              size="sm"
+              primary
+              icon="保"
+              onClick={onSave}
+              title={store.dirty ? "保存（未保存あり）" : "保存"}
+            >
+              {isMobile ? "" : "保存"}
             </SketchBtn>
-            <SketchBtn size="sm" icon="↓" onClick={onExport}>
-              画像を保存
-            </SketchBtn>
-            <SketchBtn size="sm" primary icon="保" onClick={onSave}>
-              保存
-            </SketchBtn>
-            <SketchBtn size="sm" icon="＋" onClick={onAddPersonFromNode}>
-              人物を追加
+            <SketchBtn
+              size="sm"
+              icon="＋"
+              onClick={onAddPersonFromNode}
+              title="人物を追加"
+            >
+              {isMobile ? "" : "人物を追加"}
             </SketchBtn>
           </Row>
         }
@@ -597,11 +678,19 @@ export default function TreeEditorPage() {
             overflow: "hidden",
             cursor: dragging.current ? "grabbing" : "grab",
             userSelect: "none",
+            // モバイル：タッチでページスクロール/プルリフレッシュが走ると
+            // 家系図がドラッグできない。キャンバス内は自前ハンドラに任せる。
+            touchAction: "none",
+            WebkitUserSelect: "none",
           }}
           onMouseDown={onCanvasMouseDown}
           onMouseMove={onCanvasMouseMove}
           onMouseUp={onCanvasMouseUp}
           onMouseLeave={onCanvasMouseUp}
+          onTouchStart={onCanvasTouchStart}
+          onTouchMove={onCanvasTouchMove}
+          onTouchEnd={onCanvasTouchEnd}
+          onTouchCancel={onCanvasTouchEnd}
           onWheel={onWheel}
         >
           <Grid opacity={0.1} size={28} />
@@ -680,112 +769,127 @@ export default function TreeEditorPage() {
               familyId={fid}
               scope="all"
               onClose={() => setSearchOpen(false)}
-              containerStyle={{
-                position: "absolute",
-                top: 18,
-                left: 18,
-                width: 360,
-                maxWidth: "calc(100vw - 120px)",
-                background: C.paper,
-                border: `1.5px solid ${C.sumi}`,
-                borderRadius: 4,
-                boxShadow: `4px 4px 0 ${C.sumi}, 0 20px 40px -15px rgba(0,0,0,0.35)`,
-                overflow: "hidden",
-                zIndex: 40,
-              }}
+              // モバイルは SearchPopover 既定の全幅固定シートに任せる。
+              // デスクトップはキャンバス左上にドックする。
+              containerStyle={
+                isMobile
+                  ? undefined
+                  : {
+                      position: "absolute",
+                      top: 18,
+                      left: 18,
+                      width: 360,
+                      maxWidth: "calc(100vw - 120px)",
+                      background: C.paper,
+                      border: `1.5px solid ${C.sumi}`,
+                      borderRadius: 4,
+                      boxShadow: `4px 4px 0 ${C.sumi}, 0 20px 40px -15px rgba(0,0,0,0.35)`,
+                      overflow: "hidden",
+                      zIndex: 40,
+                    }
+              }
             />
           )}
 
-          {/* MiniMap */}
-          <div
-            style={{
-              position: "absolute",
-              left: 18,
-              bottom: 18,
-              width: 170,
-              height: 110,
-              background: "rgba(255,254,248,0.92)",
-              border: `1px solid ${C.sumi}`,
-              borderRadius: 4,
-              padding: 6,
-            }}
-          >
-            <Hand size={9} color={C.pale}>
-              全体図
-            </Hand>
-            <svg width="100%" height="90%" viewBox={`0 0 ${layout?.width ?? 1000} ${layout?.height ?? 800}`}>
-              {layout?.nodes.map((n) => (
-                <rect
-                  key={n.id}
-                  x={n.x}
-                  y={n.y}
-                  width={NODE_W}
-                  height={NODE_H}
-                  fill={selectedId === n.id ? C.shu : C.sumi}
-                  opacity={selectedId === n.id ? 0.7 : 0.2}
-                />
-              ))}
-            </svg>
-          </div>
-
-          {/* Zoom controls */}
-          <div
-            style={{
-              position: "absolute",
-              right: 18,
-              bottom: 18,
-              background: C.paper,
-              border: `1px solid ${C.sumi}`,
-              borderRadius: 4,
-              display: "flex",
-              flexDirection: "column",
-              boxShadow: `2px 2px 0 ${C.sumi}`,
-            }}
-          >
-            {[
-              { k: "in", label: "＋", h: 28, on: () => setZoom((z) => Math.min(1.8, z + 0.1)) },
-              {
-                k: "val",
-                label: `${Math.round(zoom * 100)}%`,
-                h: 24,
-                on: () => {
-                  setZoom(1);
-                  setPan({ x: 0, y: 0 });
-                },
-              },
-              { k: "out", label: "−", h: 28, on: () => setZoom((z) => Math.max(0.4, z - 0.1)) },
-              {
-                k: "fit",
-                label: "⤢",
-                h: 28,
-                on: () => {
-                  setZoom(1);
-                  setPan({ x: 0, y: 0 });
-                },
-              },
-            ].map((b, i) => (
-              <button
-                key={b.k}
-                type="button"
-                onClick={b.on}
-                style={{
-                  width: 36,
-                  height: b.h,
-                  display: "grid",
-                  placeItems: "center",
-                  fontFamily: F.hand,
-                  fontSize: 13,
-                  color: C.sumi,
-                  background: "transparent",
-                  border: "none",
-                  borderTop: i === 0 ? "none" : `1px solid ${C.line}`,
-                  cursor: "pointer",
-                }}
+          {/* MiniMap — モバイルでは画面が狭くキャンバスを圧迫するので出さない。 */}
+          {!isMobile && (
+            <div
+              style={{
+                position: "absolute",
+                left: 18,
+                bottom: 18,
+                width: 170,
+                height: 110,
+                background: "rgba(255,254,248,0.92)",
+                border: `1px solid ${C.sumi}`,
+                borderRadius: 4,
+                padding: 6,
+              }}
+            >
+              <Hand size={9} color={C.pale}>
+                全体図
+              </Hand>
+              <svg
+                width="100%"
+                height="90%"
+                viewBox={`0 0 ${layout?.width ?? 1000} ${layout?.height ?? 800}`}
               >
-                {b.label}
-              </button>
-            ))}
-          </div>
+                {layout?.nodes.map((n) => (
+                  <rect
+                    key={n.id}
+                    x={n.x}
+                    y={n.y}
+                    width={NODE_W}
+                    height={NODE_H}
+                    fill={selectedId === n.id ? C.shu : C.sumi}
+                    opacity={selectedId === n.id ? 0.7 : 0.2}
+                  />
+                ))}
+              </svg>
+            </div>
+          )}
+
+          {/* Zoom controls — モバイルは 2 指ピンチでズームできるため非表示。
+              +/- ボタンが検索シートやヘッダに被って押しにくい問題の回避。 */}
+          {!isMobile && (
+            <div
+              style={{
+                position: "absolute",
+                right: 18,
+                bottom: 18,
+                background: C.paper,
+                border: `1px solid ${C.sumi}`,
+                borderRadius: 4,
+                display: "flex",
+                flexDirection: "column",
+                boxShadow: `2px 2px 0 ${C.sumi}`,
+              }}
+            >
+              {[
+                { k: "in", label: "＋", h: 28, on: () => setZoom((z) => Math.min(1.8, z + 0.1)) },
+                {
+                  k: "val",
+                  label: `${Math.round(zoom * 100)}%`,
+                  h: 24,
+                  on: () => {
+                    setZoom(1);
+                    setPan({ x: 0, y: 0 });
+                  },
+                },
+                { k: "out", label: "−", h: 28, on: () => setZoom((z) => Math.max(0.4, z - 0.1)) },
+                {
+                  k: "fit",
+                  label: "⤢",
+                  h: 28,
+                  on: () => {
+                    setZoom(1);
+                    setPan({ x: 0, y: 0 });
+                  },
+                },
+              ].map((b, i) => (
+                <button
+                  key={b.k}
+                  type="button"
+                  onClick={b.on}
+                  style={{
+                    width: 36,
+                    height: b.h,
+                    display: "grid",
+                    placeItems: "center",
+                    fontFamily: F.hand,
+                    fontSize: 13,
+                    color: C.sumi,
+                    background: "transparent",
+                    border: "none",
+                    borderTop: i === 0 ? "none" : `1px solid ${C.line}`,
+                    cursor: "pointer",
+                  }}
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Inspector toggle (when closed) */}
           {!inspectorOpen && (

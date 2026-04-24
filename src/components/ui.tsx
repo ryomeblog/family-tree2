@@ -500,10 +500,22 @@ export const AppHeader: React.FC<{
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
+  // タップ領域を 44x44 に確保しつつ、内側に ← のグリフを表示。
+  const backAreaStyle: React.CSSProperties = {
+    width: 44,
+    height: 44,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: -8,
+    flex: "none",
+  };
   const BackArrow = () => (
-    <Hand size={18} color={C.sumi}>
-      ←
-    </Hand>
+    <span style={backAreaStyle} aria-hidden>
+      <Hand size={20} color={C.sumi}>
+        ←
+      </Hand>
+    </span>
   );
   const HistoryBackButton = () => {
     const navigate = useNavigate();
@@ -519,9 +531,12 @@ export const AppHeader: React.FC<{
           padding: 0,
           font: "inherit",
           lineHeight: 1,
+          ...backAreaStyle,
         }}
       >
-        <BackArrow />
+        <Hand size={20} color={C.sumi}>
+          ←
+        </Hand>
       </button>
     );
   };
@@ -841,7 +856,19 @@ export const Field: React.FC<{
     );
   }
   return (
-    <div style={{ width, display: "flex", flexDirection: "column", gap: 6 }}>
+    <div
+      style={{
+        // 明示的な width を指定していても、親コンテナの幅を超えないように maxWidth: 100%。
+        // 狭いビューポート（モバイル）で Row wrap と合わせて 1 列に折り返せる。
+        width,
+        maxWidth: "100%",
+        flex: width !== undefined ? `0 1 ${typeof width === "number" ? `${width}px` : width}` : undefined,
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        minWidth: 0,
+      }}
+    >
       <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
         <Hand size={12} color={C.sub} bold>
           {label}
@@ -925,13 +952,16 @@ export const DialogCard: React.FC<{
   <div
     style={{
       width,
+      // 狭いビューポートではコンテナ幅に自動で縮む。親のパディング 16px×2 を考慮。
+      maxWidth: "min(100%, calc(100vw - 32px))",
       background: C.paper,
       border: `2px solid ${danger ? C.shu : C.sumi}`,
       borderRadius: 6,
       boxShadow:
         "0 30px 60px -20px rgba(26,25,21,0.35), 0 8px 16px -8px rgba(26,25,21,0.2)",
-      padding: 24,
+      padding: 20,
       position: "relative",
+      boxSizing: "border-box",
     }}
   >
     <Title size={20} color={danger ? C.shu : C.sumi}>
