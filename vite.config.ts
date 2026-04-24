@@ -22,11 +22,15 @@ export default defineConfig({
         theme_color: "#C0392B",
         lang: "ja",
         icons: [
-          { src: "./icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
-          { src: "./icons/icon-512.svg", sizes: "512x512", type: "image/svg+xml" },
           {
-            src: "./icons/maskable-512.svg",
-            sizes: "512x512",
+            src: "./icons/icon-512.svg",
+            sizes: "any",
+            type: "image/svg+xml",
+            purpose: "any",
+          },
+          {
+            src: "./icons/icon-512.svg",
+            sizes: "any",
             type: "image/svg+xml",
             purpose: "maskable",
           },

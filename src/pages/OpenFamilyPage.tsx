@@ -28,13 +28,20 @@ export default function OpenFamilyPage() {
     try {
       const preview = await previewFtree2(file);
       await commitImport(preview);
+      let effectiveId = preview.family.id;
       if (mode === "replace") {
         store.replaceFamilies({ [preview.family.id]: preview.family });
       } else {
-        store.addFamily(preview.family);
+        effectiveId = store.addFamily(preview.family);
       }
-      store.showToast("ok", `${preview.family.name} を取り込みました`);
-      nav(`/family/${preview.family.id}/tree`);
+      const renamed = effectiveId !== preview.family.id;
+      store.showToast(
+        "ok",
+        renamed
+          ? `${preview.family.name} を別家系として取り込みました（ID: ${effectiveId}）`
+          : `${preview.family.name} を取り込みました`,
+      );
+      nav(`/family/${effectiveId}/tree`);
     } catch (e) {
       if (e instanceof ImportError) {
         nav(`/import/error?kind=${e.kind}`);

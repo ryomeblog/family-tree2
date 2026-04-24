@@ -230,7 +230,7 @@ interface FamilyStoreShape {
 
   getFamily: (id?: string) => Family | undefined;
 
-  addFamily: (f: Family) => void;
+  addFamily: (f: Family) => string;
   setActiveFamily: (id: string) => void;
   renameFamily: (id: string, name: string) => void;
   deleteFamily: (id: string) => void;
@@ -293,12 +293,24 @@ export const useFamilyStore = create<FamilyStoreShape>()(
         return get().families[fid];
       },
 
-      addFamily: (f) =>
+      addFamily: (f) => {
+        // 同じ id の家系が既にある場合、`_2`, `_3`... と枝番を付けて別家系として保存。
+        // これをしないと取り込みで意図せず既存を上書きしてしまう。
+        const existing = get().families;
+        let id = f.id;
+        if (existing[id]) {
+          let n = 2;
+          while (existing[`${f.id}_${n}`]) n++;
+          id = `${f.id}_${n}`;
+        }
+        const stored: Family = id === f.id ? f : { ...f, id };
         set((s) => ({
-          families: { ...s.families, [f.id]: f },
-          activeFamilyId: f.id,
+          families: { ...s.families, [id]: stored },
+          activeFamilyId: id,
           dirty: true,
-        })),
+        }));
+        return id;
+      },
       setActiveFamily: (id) => set({ activeFamilyId: id }),
       renameFamily: (id, name) =>
         set((s) => ({

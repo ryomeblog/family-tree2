@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BarePage,
@@ -9,7 +9,6 @@ import {
   Row,
   Col,
   Chip,
-  Photo,
   Brush,
   C,
 } from "../components/ui";
@@ -21,6 +20,62 @@ import {
 } from "../features/importExport/readFtree2";
 import { pickFile } from "../features/photos/ingest";
 import { useFamilyStore } from "../stores/familyStore";
+import type JSZip from "jszip";
+
+// zip 内のサムネ（なければフル画像）を blob URL として読み出して表示。
+// 取り込み前の preview 用なので IndexedDB は介さない。
+const ZipThumb: React.FC<{ zip: JSZip; name: string; size?: number }> = ({
+  zip,
+  name,
+  size = 56,
+}) => {
+  const [url, setUrl] = useState<string | undefined>();
+  useEffect(() => {
+    let revoked: string | undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const entry = zip.file(name) ?? undefined;
+        if (!entry) return;
+        const blob = await entry.async("blob");
+        if (cancelled) return;
+        revoked = URL.createObjectURL(blob);
+        setUrl(revoked);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [zip, name]);
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        background: "#000",
+        border: `1px solid ${C.line}`,
+        borderRadius: 3,
+        overflow: "hidden",
+      }}
+    >
+      {url && (
+        <img
+          src={url}
+          alt=""
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            display: "block",
+          }}
+        />
+      )}
+    </div>
+  );
+};
 
 const Step: React.FC<{
   n: number;
@@ -63,6 +118,24 @@ export default function ImportPage() {
   const [mode, setMode] = useState<"append" | "replace">("append");
   const [error, setError] = useState<string | null>(null);
 
+  // プレビュー用に最大6枚分のサムネ名を抽出（thumb 優先、無ければフル）。
+  const previewPhotoNames = useMemo(() => {
+    if (!preview) return [];
+    const all = Object.keys(preview.rawZip.files).filter(
+      (n) => n.startsWith("photos/") && !preview.rawZip.files[n].dir,
+    );
+    const thumbs = all.filter((n) => n.endsWith(".thumb.jpg"));
+    const fulls = all.filter((n) => !n.endsWith(".thumb.jpg"));
+    const pick: string[] = [];
+    for (const f of fulls) {
+      if (pick.length >= 6) break;
+      const id = f.replace(/^photos\//, "").replace(/\.jpg$/, "");
+      const t = thumbs.find((x) => x === `photos/${id}.thumb.jpg`);
+      pick.push(t ?? f);
+    }
+    return pick;
+  }, [preview]);
+
   const onPick = async () => {
     setError(null);
     const files = await pickFile(".ftree2,application/zip", false);
@@ -82,13 +155,20 @@ export default function ImportPage() {
     if (!preview) return;
     try {
       await commitImport(preview);
+      let effectiveId = preview.family.id;
       if (mode === "replace") {
         store.replaceFamilies({ [preview.family.id]: preview.family });
       } else {
-        store.addFamily(preview.family);
+        effectiveId = store.addFamily(preview.family);
       }
-      store.showToast("ok", `${preview.family.name} を取り込みました`);
-      nav(`/family/${preview.family.id}/tree`);
+      const renamed = effectiveId !== preview.family.id;
+      store.showToast(
+        "ok",
+        renamed
+          ? `${preview.family.name} を別家系として取り込みました（ID: ${effectiveId}）`
+          : `${preview.family.name} を取り込みました`,
+      );
+      nav(`/family/${effectiveId}/tree`);
     } catch (e) {
       if (e instanceof ImportError) {
         nav(`/import/error?kind=${e.kind}`);
@@ -210,8 +290,8 @@ export default function ImportPage() {
                   </Row>
                 </Col>
                 <Row gap={8} wrap style={{ maxWidth: 240 }}>
-                  {Array.from({ length: Math.min(6, preview.photoCount) }).map((_, i) => (
-                    <Photo key={i} size={56} label={`写${i + 1}`} />
+                  {previewPhotoNames.map((name) => (
+                    <ZipThumb key={name} zip={preview.rawZip} name={name} size={56} />
                   ))}
                 </Row>
               </Row>
