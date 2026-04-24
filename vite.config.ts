@@ -6,6 +6,14 @@ import { VitePWA } from "vite-plugin-pwa";
 // HashRouter keeps all app routes behind `#`, so no extra rewrite is needed.
 export default defineConfig({
   base: "/family-tree2/",
+  // 既定だと 127.0.0.1 のみにバインドされ LAN からアクセスできないので、
+  // dev server を全 IF（0.0.0.0）で listen させる。
+  // npm run dev 時に "Network: http://<LAN-IP>:5173/family-tree2/" が表示される。
+  server: {
+    host: true,
+    port: 5173,
+    strictPort: true,
+  },
   plugins: [
     react(),
     VitePWA({
