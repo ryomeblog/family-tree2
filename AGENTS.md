@@ -174,10 +174,15 @@ Read ツールは画像を視覚として取得できる。特定の不具合の
 
 キーを変更する場合は **既存データを読める移行パスを用意**する。
 
+### 家系 ID の衝突
+`store.addFamily(f: Family)` は **戻り値（実際に使用された id）を返す**。同 id があれば `_2` / `_3` ... を自動付与。Import / Open で「別家系として追加」がきちんと別家系になる。呼び出し側は戻り値を使って `nav()` すること（`preview.family.id` を直接使わない）。
+
 ### 写真
-- アップロード時：`src/features/photos/resize.ts` で最大辺 1600px・JPEG quality 0.82、サムネ 320px 正方形クロップ
+- アップロード時：`src/features/photos/resize.ts` で最大辺 1600px・JPEG quality 0.82、サムネは 320px **正方形＋黒レターボックス**（中央クロップしない）
 - ストア：`src/features/photos/ingest.ts` で IDB に保存 → `PhotoId` を発行
-- 表示：`src/features/photos/PhotoFromIdb.tsx` が Blob URL をキャッシュして `<img>` を描画
+- 表示：`src/features/photos/PhotoFromIdb.tsx` が Blob URL をキャッシュして `<img>` を描画。`objectFit: "contain"` + 黒背景で端切れなし。
+- 拡大：`/family/:fid/photo/:pid?ids=a,b,c&i=N` で `PhotoLightbox` が開く。`ids` / `i` を付けて呼べば前後ナビ＋サムネストリップ対応。
+- 代表写真：Memory は `heroPhotoId` を持てる（未設定なら `photoIds[0]`）。MemoryEditor でクリックで切替（青枠＋右下「代表写真」バッジ）。
 
 ---
 
@@ -205,11 +210,17 @@ Read ツールは画像を視覚として取得できる。特定の不具合の
 ## 10. やってはいけないこと
 
 - **`src/main.tsx` から `import "./index.css"` を外す** — body の既定 margin 8px が復活してスクロールが発生する。
+- **`src/index.css` で `@import` を `@tailwind` の後に書く** — Vite/PostCSS が `@import must precede all other statements` エラーを吐く。`@import "./styles/tokens.css"` は必ずファイル先頭。
 - **Zustand の `set` を直接呼ぶ** — 必ずアクション（`addPerson` など）経由。`persist` + `partialize` で書き込み対象を制御している。
 - **`any` 型の濫用** — 型エラーを握り潰すために `any` を入れない。
 - **未検証の破壊的操作** — 家系削除・全データ削除などは `DeleteConfirmModal` 経由。`store.wipe()` 直呼びは UI からのみ。
 - **`<select>` のフォントサイズを 14px 未満に** — iOS Safari がフォーカス時に自動ズームする。
 - **placeholder を value で上書き** — 新規追加系のフォームは初期値を空文字に統一（ユーザー要望）。性別のみ「男性」既定。
+- **Enter 送信の `<input>` で IME 変換確定を吸収する** — `if (e.nativeEvent.isComposing \|\| e.keyCode === 229) return;` を onKeyDown の先頭に入れる（思い出エディタのタグ入力で実施済み）。
+- **`store.addFamily(f)` の戻り値を無視** — id 衝突時は `_2` 等が付く。戻り値で `nav()` すること。
+- **人物モーダルの `backTo` に固定 URL を入れる** — `nav(-1)` による履歴戻りに任せる。編集を開いたソース（tree / 人物詳細）へ戻る挙動を壊さない。
+- **画像を中央クロップで正方形化する** — `cropSquareJpeg` / `PhotoFromIdb` とも **contain + 黒背景** で統一。新しい写真表示でも合わせる。
+- **ヘッダの家系名をハードコード** — `useFamilyStore((s) => s.families[fid]?.name)` で現在の家系を引く。「山田家」を直書きしない。
 
 ---
 

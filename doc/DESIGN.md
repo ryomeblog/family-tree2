@@ -5,7 +5,7 @@
 対象バージョン: v0.1（MVP）／ PWA
 対象読者: 開発者・デザイナー・プロダクトオーナー
 
-> **実装状況サマリ（2026-04-24）**
+> **実装状況サマリ（2026-04-24 更新）**
 > 本設計書は当初の仕様の正本ですが、実装の過程で **意図的に逸脱した箇所** があります。
 > 詳細は本書末尾の **付録 B・実装の現状と仕様からの逸脱** を参照。
 > 主な逸脱:
@@ -13,6 +13,8 @@
 > - d3-hierarchy は不採用、**独自の世代ベースレイアウトエンジン**（`TreeEditorPage.tsx` 内 `layoutFamily()`）
 > - TipTap 本文は **JSON ではなく HTML 文字列**として保存
 > - 追加ルート: `/terms`・`/privacy`（JSON 駆動の法的文書）
+> - **テーマ機能は削除**（`Family.theme` / `themeColor` / `store.theme` / UI 切替とも撤去。Dashboard カードの帯色は固定）
+> - アプリアイコンは **`icon-512.svg` 単一ソース**（SVG の vector なので any / maskable を同一ファイルで兼ねる）
 
 ---
 
@@ -666,9 +668,9 @@ interface Family {
   links: ParentChildLink[];
   memories: Record<MemoryId, Memory>;
   // 仕様にない追加フィールド:
-  themeColor: string;
   generations: number;                     // 集計値（UI 表示用）
   lastUpdated: string;                     // 集計値（UI 表示用）
+  // 仕様の `theme` / `themeColor` は **削除**（2026-04-24）
   // 仕様の `meta: {...}` は未実装（外側の Zustand で `lastExportAt` を持つ）
 }
 
@@ -691,6 +693,7 @@ interface Memory {
   tags: string[];
   photos: number;                // 枚数カウント（UI 表示用）
   photoIds?: PhotoId[];          // ← 仕様の `photos: PhotoId[]` に相当
+  heroPhotoId?: PhotoId;         // 代表写真（MemoryDetail ヒーロー／一覧サムネで優先表示）
   year: string; era?: string;    // 表示用プレフィックス
   locked?: boolean;              // UI 表示用
 }
@@ -757,9 +760,17 @@ DESIGN.md §6 と §7 にあったワイヤーフレームディレクトリは 
 
 - **`/terms`・`/privacy` ページ**（JSON 駆動、`version` / `effectiveDate` / `lastUpdatedAt` 付き）
 - **ケバブメニュー**（Dashboard の家系カード右下、「開く」「書き出し」「削除」）
-- **インプレース家系メニュー**（AppHeader の「家系名 ▾」クリック展開）
-- **`YearPicker`**（生年選択：現在から 20 年、スクロールで +20 年）
+- **インプレース家系メニュー**（AppHeader の「家系名 ▾」クリック展開）。現在のページ種別（tree / memories）を維持したまま別家系へ切替できる。
+- **`YearPicker`**（生年選択：現在から 20 年、スクロールで +20 年）— 思い出ノートの時期欄で使用
+- **`FuzzyDateInput`**（`src/components/FuzzyDateInput.tsx`）— 西暦／和暦／年のみ／不明 の 4 モード切替。PersonForm と NewFamilyModal で共用。保存時に `FuzzyDate` に変換。
 - **`SearchPopover`**（人物・思い出横断検索。TreeEditor・Memories 両方で使用）
+- **画像を正方形化する際の黒レターボックス**（`resize.ts::cropSquareJpeg` は中央クロップではなく contain 方式。`PhotoFromIdb` も `objectFit: contain` + `background: #000` で端切れを防ぐ）
+- **写真ライトボックスへのリンク整備**：`/family/:fid/photo/:pid?ids=a,b,c&i=N` を Memory詳細のヒーロー／写真の記録／PersonDetail の写真の記録・一覧サムネから直接開ける
+- **代表写真（`heroPhotoId`）**：Memory に代表写真を設定可能。MemoryEditor の写真サムネはクリックで代表に切替（青枠＋「代表写真」バッジ）。
+- **思い出ノート前後ナビ強化**：閲覧可能なノートだけで並び順を決定、`←`/`→` キーで前後移動、下部カードもクリック可能な `<Link>`、遷移時に本文スクロールを top:0 に戻す
+- **画面横断ナビゲーション**：TreeEditor ヘッダに「思い出ノート」ボタン、MemoriesList ヘッダに「家系図」ボタン、双方向に 1 クリック遷移
+- **設定画面の書き出し対象セレクト**：書き出す家系をプルダウンで選べる（既定はアクティブ家系）
+- **`addFamily` の自動 ID 衝突回避**：同 ID が存在すれば `_2` / `_3` と枝番、戻り値で最終 id を返す。Import / Open で「上書きされた」を防ぐ。
 - **Playwright による視覚検証スクリプト**（`scripts/*.mjs`）
 - **`.mcp.json`**（Playwright MCP 設定）
 
@@ -767,7 +778,8 @@ DESIGN.md §6 と §7 にあったワイヤーフレームディレクトリは 
 
 仕様 §5 通り実装済み:
 - `vite.config.ts` に `VitePWA({ strategies: "generateSW" })`
-- `public/icons/icon-192.svg` / `icon-512.svg` / `maskable-512.svg`
+- `public/icons/icon-512.svg` **単一ソース**（SVG vector なので `sizes: "any"` で全サイズ対応、manifest は `purpose: "any"` と `"maskable"` の 2 エントリで同一 SVG を指定）
+- `index.html` に `<link rel="icon" type="image/svg+xml">` / `<link rel="apple-touch-icon">` / `<meta name="theme-color">` を追加
 - `src/pwa/registerSW.ts` — `virtual:pwa-register` を動的 import、`onNeedRefresh` で再読込トースト
 - `src/pwa/persist.ts` — `navigator.storage.persist()` / `.estimate()` — Settings に実測値表示
 - `src/pwa/install.ts` — `beforeinstallprompt` を捕捉して Settings のボタンから呼び出し
