@@ -4,16 +4,17 @@ import { BarePage } from "../components/ui";
 import { AppHeader } from "../components/ui";
 import PersonForm from "./PersonForm";
 import { C } from "../components/ui";
+import { useFamilyStore } from "../stores/familyStore";
 
 export default function AddPersonModal() {
   const { fid = "yamada" } = useParams();
   const nav = useNavigate();
+  const familyName = useFamilyStore((s) => s.families[fid]?.name ?? "—");
   return (
     <BarePage>
       <AppHeader
-        familyName="山田家"
+        familyName={familyName}
         back
-        backTo={`/family/${fid}/tree`}
         showFamilyMenu
         familyId={fid}
       />
@@ -37,7 +38,7 @@ export default function AddPersonModal() {
           <PersonForm
             mode="add"
             familyId={fid}
-            onClose={() => nav(`/family/${fid}/tree`)}
+            onClose={() => nav(-1)}
           />
         </div>
       </div>

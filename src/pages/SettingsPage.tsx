@@ -121,6 +121,10 @@ export default function SettingsPage() {
     Math.round((estimate.used / Math.max(1, estimate.total)) * 100),
   );
   const [viewerId, setViewerId] = useState(store.currentViewerPersonId);
+  // 書き出し対象の家系。既定は現在アクティブな家系。
+  const [exportFamilyId, setExportFamilyId] = useState(
+    activeFamily?.id ?? Object.keys(store.families)[0] ?? "",
+  );
 
   useEffect(() => {
     refreshStorageEstimate();
@@ -151,26 +155,54 @@ export default function SettingsPage() {
           <div style={{ flex: 1, minWidth: 420 }}>
             <Section no="A." title="書き出し・取り込み">
               <Item
-                label="この家系を書き出す（.ftree2）"
-                hint="家系＋画像を一つの ZIP にまとめます。"
+                label="家系を書き出す（.ftree2）"
+                hint="書き出す家系を選んでから実行。家系＋画像を一つの ZIP にまとめます。"
                 right={
-                  <SketchBtn
-                    size="sm"
-                    icon="↓"
-                    onClick={async () => {
-                      if (!activeFamily) {
-                        store.showToast("err", "家系が選択されていません");
-                        return;
-                      }
-                      try {
-                        await writeFtree2(activeFamily.id);
-                      } catch {
-                        store.showToast("err", "書き出しに失敗しました");
-                      }
-                    }}
-                  >
-                    書き出す
-                  </SketchBtn>
+                  <Row gap={8}>
+                    <select
+                      value={exportFamilyId}
+                      onChange={(e) => setExportFamilyId(e.target.value)}
+                      style={{
+                        fontFamily: F.mincho,
+                        fontSize: 13,
+                        padding: "6px 10px",
+                        minHeight: 30,
+                        border: `1px solid ${C.sumi}`,
+                        borderRadius: 3,
+                        boxShadow: `2px 2px 0 ${C.sumi}`,
+                        background: C.paper,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {Object.values(store.families).map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                          {f.id === activeFamily?.id ? "（表示中）" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <SketchBtn
+                      size="sm"
+                      icon="↓"
+                      disabled={!exportFamilyId || !store.families[exportFamilyId]}
+                      onClick={async () => {
+                        const fam = store.families[exportFamilyId];
+                        if (!fam) {
+                          store.showToast("err", "家系が選択されていません");
+                          return;
+                        }
+                        try {
+                          await writeFtree2(fam.id);
+                          store.setLastExport();
+                          store.showToast("ok", `${fam.name} を書き出しました`);
+                        } catch {
+                          store.showToast("err", "書き出しに失敗しました");
+                        }
+                      }}
+                    >
+                      書き出す
+                    </SketchBtn>
+                  </Row>
                 }
               />
               <Item

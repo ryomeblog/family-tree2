@@ -2,16 +2,17 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { BarePage, AppHeader } from "../components/ui";
 import PersonForm from "./PersonForm";
+import { useFamilyStore } from "../stores/familyStore";
 
 export default function EditPersonModal() {
   const { fid = "yamada", pid = "p_haruko" } = useParams();
   const nav = useNavigate();
+  const familyName = useFamilyStore((s) => s.families[fid]?.name ?? "—");
   return (
     <BarePage>
       <AppHeader
-        familyName="山田家"
+        familyName={familyName}
         back
-        backTo={`/family/${fid}/person/${pid}`}
         showFamilyMenu
         familyId={fid}
       />
@@ -36,7 +37,7 @@ export default function EditPersonModal() {
             mode="edit"
             familyId={fid}
             personId={pid}
-            onClose={() => nav(`/family/${fid}/person/${pid}`)}
+            onClose={() => nav(-1)}
           />
         </div>
       </div>

@@ -2,7 +2,7 @@
 // Visual language: picture-book, mincho titles (Kaisei Decol),
 // handwritten body (Klee One), paper background, vermilion accents.
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // ────────────────────────────────────────────────────────────────────
 // FrameMode — "framed" renders the browser-window chrome (wireframe
@@ -505,6 +505,26 @@ export const AppHeader: React.FC<{
       ←
     </Hand>
   );
+  const HistoryBackButton = () => {
+    const navigate = useNavigate();
+    return (
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        aria-label="戻る"
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: 0,
+          font: "inherit",
+          lineHeight: 1,
+        }}
+      >
+        <BackArrow />
+      </button>
+    );
+  };
   const FamilyLabel = (
     <>
       <Title size={17}>{familyName}</Title>
@@ -586,7 +606,7 @@ export const AppHeader: React.FC<{
             <BackArrow />
           </Link>
         ) : (
-          <BackArrow />
+          <HistoryBackButton />
         ))}
       <Link
         to={homeTo}

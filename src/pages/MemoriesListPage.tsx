@@ -245,6 +245,9 @@ export default function MemoriesListPage() {
                 />
               )}
             </div>
+            <SketchBtn size="sm" icon="家" to={`/family/${fid}/tree`}>
+              家系図
+            </SketchBtn>
             <SketchBtn size="sm" primary icon="筆" to={`/family/${fid}/memory/new`}>
               思い出を書く
             </SketchBtn>

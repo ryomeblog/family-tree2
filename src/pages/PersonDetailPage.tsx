@@ -9,10 +9,10 @@ import {
   Row,
   Col,
   Chip,
-  Photo,
   Brush,
   InkDot,
   C,
+  F,
 } from "../components/ui";
 import {
   useFamilyStore,
@@ -62,7 +62,12 @@ export default function PersonDetailPage() {
   const visibleMemories = allMemories.filter((m) =>
     canViewMemory(m, store.currentViewerPersonId),
   );
-  const photosCount = visibleMemories.reduce((n, m) => n + m.photos, 0);
+  // 表示可能な思い出に紐づく photoIds を集約。重複は除き、先頭で
+  // ライトボックスを開いた時にも全枚数で前後遷移できるよう配列で保持。
+  const personPhotoIds = Array.from(
+    new Set(visibleMemories.flatMap((m) => m.photoIds ?? [])),
+  );
+  const photosCount = personPhotoIds.length;
 
   const [role, setRole] = useState(person.role ?? "");
 
@@ -229,9 +234,38 @@ export default function PersonDetailPage() {
               </Hand>
             </Row>
             <Row gap={10} wrap style={{ marginTop: 12 }}>
-              {Array.from({ length: Math.min(photosCount, 12) }).map((_, i) => (
-                <Photo key={i} size={96} label={`写${i + 1}`} />
+              {personPhotoIds.slice(0, 12).map((id, i) => (
+                <Link
+                  key={id}
+                  to={`/family/${fid}/photo/${id}?ids=${personPhotoIds.join(",")}&i=${i}`}
+                  title={`写真 ${i + 1} / ${photosCount}`}
+                  style={{
+                    display: "inline-block",
+                    lineHeight: 0,
+                    borderRadius: 4,
+                    cursor: "zoom-in",
+                  }}
+                >
+                  <PhotoFromIdb id={id} size={96} rounded={4} />
+                </Link>
               ))}
+              {photosCount > 12 && (
+                <div
+                  style={{
+                    width: 96,
+                    height: 96,
+                    display: "grid",
+                    placeItems: "center",
+                    border: `1px dashed ${C.pale}`,
+                    color: C.pale,
+                    fontFamily: F.hand,
+                    fontSize: 12,
+                    borderRadius: 4,
+                  }}
+                >
+                  +{photosCount - 12}
+                </div>
+              )}
               {photosCount === 0 && (
                 <Hand size={11} color={C.pale}>
                   写真はまだありません。
