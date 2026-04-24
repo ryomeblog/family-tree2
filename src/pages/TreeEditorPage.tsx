@@ -522,6 +522,9 @@ export default function TreeEditorPage() {
                 ● 未保存の変更あり
               </Hand>
             )}
+            <SketchBtn size="sm" icon="帖" to={`/family/${fid}/memories`}>
+              思い出ノート
+            </SketchBtn>
             <SketchBtn size="sm" icon="↓" onClick={onExport}>
               画像を保存
             </SketchBtn>

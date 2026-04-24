@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Hanko, Hand, Title, C, F, Row } from "../components/ui";
 import { useFamilyStore } from "../stores/familyStore";
 import { writeFtree2 } from "../features/importExport/writeFtree2";
@@ -92,13 +92,27 @@ export default function FamilyMenuDropdown({
   onNavigate: () => void;
 }) {
   const nav = useNavigate();
+  const loc = useLocation();
   const store = useFamilyStore();
   const families = Object.values(store.families);
   const current = store.families[familyId];
 
+  // 切替先のパス：現在のページ種別を維持して別家系へ。
+  // 例) /family/A/memories → /family/B/memories
+  //     /family/A/memory/mid → /family/B/memories （具体的な memory ID は引き継げない）
+  //     /family/A/person/pid → /family/B/tree （同上）
+  //     それ以外 → /family/B/tree
+  const targetPathFor = (id: string) => {
+    const m = loc.pathname.match(/^\/family\/[^/]+\/([^/]+)(\/|$)/);
+    const section = m?.[1] ?? "tree";
+    if (section === "memories" || section === "memory") return `/family/${id}/memories`;
+    if (section === "tree") return `/family/${id}/tree`;
+    return `/family/${id}/tree`;
+  };
+
   const onSwitch = (id: string) => {
     store.setActiveFamily(id);
-    nav(`/family/${id}/tree`);
+    nav(targetPathFor(id));
     onNavigate();
   };
   const onExport = async () => {

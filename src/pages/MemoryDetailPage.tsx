@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   BarePage,
   AppHeader,
@@ -7,7 +7,6 @@ import {
   Title,
   SketchBtn,
   Row,
-  Col,
   Chip,
   Brush,
   Hanko,
@@ -353,38 +352,63 @@ export default function MemoryDetailPage() {
         </Row>
 
         <Row justify="space-between" style={{ marginTop: 24 }}>
-          <Col gap={2}>
-            {prev ? (
-              <>
-                <Hand size={10} color={C.pale}>
-                  ‹ 前の思い出
-                </Hand>
-                <Title size={15}>
-                  {prev.title} — {prev.year}
-                </Title>
-              </>
-            ) : (
-              <Hand size={11} color={C.pale}>
-                これが最初の思い出です
+          {prev ? (
+            <Link
+              to={`/family/${fid}/memory/${prev.id}`}
+              style={{
+                textDecoration: "none",
+                color: "inherit",
+                display: "block",
+                padding: "10px 12px",
+                border: `1px solid ${C.line}`,
+                borderRadius: 4,
+                background: C.paper,
+                transition: "background 0.15s",
+                maxWidth: "46%",
+              }}
+              title={`${prev.year}年 ${prev.title} へ`}
+            >
+              <Hand size={10} color={C.pale}>
+                ‹ 前の思い出
               </Hand>
-            )}
-          </Col>
-          <Col gap={2} style={{ textAlign: "right" }}>
-            {next ? (
-              <>
-                <Hand size={10} color={C.pale}>
-                  次の思い出 ›
-                </Hand>
-                <Title size={15}>
-                  {next.title} — {next.year}
-                </Title>
-              </>
-            ) : (
-              <Hand size={11} color={C.pale}>
-                これが最新の思い出です
+              <Title size={15}>
+                {prev.title} — {prev.year}
+              </Title>
+            </Link>
+          ) : (
+            <Hand size={11} color={C.pale}>
+              これが最初の思い出です
+            </Hand>
+          )}
+          {next ? (
+            <Link
+              to={`/family/${fid}/memory/${next.id}`}
+              style={{
+                textDecoration: "none",
+                color: "inherit",
+                display: "block",
+                padding: "10px 12px",
+                border: `1px solid ${C.line}`,
+                borderRadius: 4,
+                background: C.paper,
+                transition: "background 0.15s",
+                maxWidth: "46%",
+                textAlign: "right",
+              }}
+              title={`${next.year}年 ${next.title} へ`}
+            >
+              <Hand size={10} color={C.pale}>
+                次の思い出 ›
               </Hand>
-            )}
-          </Col>
+              <Title size={15}>
+                {next.title} — {next.year}
+              </Title>
+            </Link>
+          ) : (
+            <Hand size={11} color={C.pale}>
+              これが最新の思い出です
+            </Hand>
+          )}
         </Row>
       </div>
     </BarePage>
