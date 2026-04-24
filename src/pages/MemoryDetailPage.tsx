@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import React, { useEffect, useMemo, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   BarePage,
   AppHeader,
@@ -87,21 +87,58 @@ const bodyStyle = `
 
 export default function MemoryDetailPage() {
   const { fid = "yamada", mid = "m_rose" } = useParams();
+  const nav = useNavigate();
   const store = useFamilyStore();
   const family = store.families[fid];
   const memory = family?.memories[mid];
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // 並び順：閲覧可能な思い出だけを年→ID の安定順で並べる。
+  // 年が取れない（"—"）ものは末尾へ。
   const { prev, next } = useMemo(() => {
     if (!family) return { prev: undefined, next: undefined };
-    const sorted = Object.values(family.memories).sort((a, b) =>
-      a.year.localeCompare(b.year),
-    );
+    const yearNum = (y: string) => {
+      const n = parseInt(y, 10);
+      return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+    };
+    const sorted = Object.values(family.memories)
+      .filter((m) => canViewMemory(m, store.currentViewerPersonId))
+      .sort((a, b) => {
+        const d = yearNum(a.year) - yearNum(b.year);
+        return d !== 0 ? d : a.id.localeCompare(b.id);
+      });
     const i = sorted.findIndex((m) => m.id === mid);
     return {
       prev: i > 0 ? sorted[i - 1] : undefined,
       next: i >= 0 && i < sorted.length - 1 ? sorted[i + 1] : undefined,
     };
-  }, [family, mid]);
+  }, [family, mid, store.currentViewerPersonId]);
+
+  // 遷移後に読みたい人は先頭から読むはずなので、スクロールを頭へ戻す。
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [mid]);
+
+  // ← / → でナビゲーション。input/textarea/contenteditable にフォーカス中は無効。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      )
+        return;
+      if (e.key === "ArrowLeft" && prev) {
+        nav(`/family/${fid}/memory/${prev.id}`);
+      } else if (e.key === "ArrowRight" && next) {
+        nav(`/family/${fid}/memory/${next.id}`);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prev, next, fid, nav]);
 
   if (!family || !memory) {
     return (
@@ -168,15 +205,17 @@ export default function MemoryDetailPage() {
               size="sm"
               to={prev ? `/family/${fid}/memory/${prev.id}` : "#"}
               disabled={!prev}
+              title={prev ? `← ${prev.year}年 ${prev.title}` : "これが最初の思い出です"}
             >
-              前へ ‹
+              ‹ 前へ
             </SketchBtn>
             <SketchBtn
               size="sm"
               to={next ? `/family/${fid}/memory/${next.id}` : "#"}
               disabled={!next}
+              title={next ? `${next.year}年 ${next.title} →` : "これが最新の思い出です"}
             >
-              › 次へ
+              次へ ›
             </SketchBtn>
             <SketchBtn
               size="sm"
@@ -189,6 +228,7 @@ export default function MemoryDetailPage() {
         }
       />
       <div
+        ref={scrollRef}
         style={{
           padding: "40px 60px",
           height: "calc(100vh - 56px)",
