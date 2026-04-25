@@ -196,12 +196,29 @@ export default function ImportPage() {
         <Title size={28}>取り込み</Title>
         <Brush width={180} color={C.shuSoft} />
 
-        <Row gap={36} style={{ marginTop: 14 }} align="center">
+        <Row
+          gap={isMobile ? 12 : 36}
+          style={{ marginTop: 14 }}
+          align="center"
+          wrap
+        >
           <Step n={1} t="ファイル選択" done={!!preview} active={!preview} />
-          <div style={{ flex: "0 0 40px", height: 1, background: C.line }} />
-          <Step n={2} t="プレビュー" done={false} active={!!preview} />
-          <div style={{ flex: "0 0 40px", height: 1, background: C.line }} />
-          <Step n={3} t="取り込み実行" />
+          <div
+            style={{
+              flex: isMobile ? "0 0 16px" : "0 0 40px",
+              height: 1,
+              background: C.line,
+            }}
+          />
+          <Step n={2} t="プレビュー" done={!!preview} active={!!preview} />
+          <div
+            style={{
+              flex: isMobile ? "0 0 16px" : "0 0 40px",
+              height: 1,
+              background: C.line,
+            }}
+          />
+          <Step n={3} t="取り込み実行" active={!!preview} />
         </Row>
 
         {!preview && (

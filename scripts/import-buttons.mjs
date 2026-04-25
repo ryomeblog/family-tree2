@@ -1,6 +1,6 @@
 // 取り込みプレビュー画面の下部ボタンレイアウトをモバイルで確認
 import { chromium, devices } from "playwright";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 
 const BASE = "http://127.0.0.1:5173/family-tree2/";
 await mkdir("screenshots", { recursive: true });
