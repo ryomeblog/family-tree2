@@ -572,35 +572,31 @@ export default function TreeEditorPage() {
         showFamilyMenu
         familyId={fid}
         right={
-          <Row gap={8}>
+          <Row gap={isMobile ? 4 : 8}>
             {store.dirty && !isMobile && (
               <Hand size={11} color={C.shu}>
                 ● 未保存の変更あり
               </Hand>
             )}
-            {/* 思い出ノート / 画像を保存 は幅が足りない mobile では出さない。
-                思い出ノートは AppHeader の 家系名 ▾ ドロップダウンからアクセス可。
-                画像を保存はモバイルでは需要が低い想定。 */}
-            {!isMobile && (
-              <SketchBtn
-                size="sm"
-                icon="帖"
-                to={`/family/${fid}/memories`}
-                title="思い出ノート"
-              >
-                思い出ノート
-              </SketchBtn>
-            )}
-            {!isMobile && (
-              <SketchBtn
-                size="sm"
-                icon="↓"
-                onClick={onExport}
-                title="画像を保存"
-              >
-                画像を保存
-              </SketchBtn>
-            )}
+            {/* モバイルではすべてアイコンのみ。タップ領域は SketchBtn size="sm"
+                の inline-flex で確保される。横スクロール（AppHeader 右側）も
+                併用しているので 4 つでも収まらない場合はスワイプ可。 */}
+            <SketchBtn
+              size="sm"
+              icon="帖"
+              to={`/family/${fid}/memories`}
+              title="思い出ノート"
+            >
+              {isMobile ? "" : "思い出ノート"}
+            </SketchBtn>
+            <SketchBtn
+              size="sm"
+              icon="↓"
+              onClick={onExport}
+              title="画像を保存"
+            >
+              {isMobile ? "" : "画像を保存"}
+            </SketchBtn>
             <SketchBtn
               size="sm"
               primary

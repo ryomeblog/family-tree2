@@ -21,6 +21,7 @@ import {
 import { pickFile } from "../features/photos/ingest";
 import { useFamilyStore } from "../stores/familyStore";
 import type JSZip from "jszip";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 // zip 内のサムネ（なければフル画像）を blob URL として読み出して表示。
 // 取り込み前の preview 用なので IndexedDB は介さない。
@@ -114,6 +115,7 @@ const Step: React.FC<{
 export default function ImportPage() {
   const nav = useNavigate();
   const store = useFamilyStore();
+  const isMobile = useIsMobile();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mode, setMode] = useState<"append" | "replace">("append");
   const [error, setError] = useState<string | null>(null);
@@ -335,15 +337,51 @@ export default function ImportPage() {
               </Row>
             </div>
 
-            <Row justify="space-between" style={{ marginTop: 24 }}>
-              <SketchBtn onClick={onPick}>← ファイルを選び直す</SketchBtn>
-              <Row gap={10}>
-                <SketchBtn to="/home">キャンセル</SketchBtn>
-                <SketchBtn primary icon="✓" onClick={onConfirm}>
+            {/* モバイルでは 3 ボタン横並びだと viewport を超えるので縦積みに。
+                primary の「取り込む」を最上段に置いて押しやすくする。 */}
+            <div
+              style={{
+                marginTop: 24,
+                display: "flex",
+                flexDirection: isMobile ? "column-reverse" : "row",
+                justifyContent: "space-between",
+                alignItems: isMobile ? "stretch" : "center",
+                gap: 10,
+              }}
+            >
+              <SketchBtn
+                size={isMobile ? "sm" : "md"}
+                onClick={onPick}
+              >
+                ← ファイルを選び直す
+              </SketchBtn>
+              <Row
+                gap={10}
+                wrap
+                justify={isMobile ? "stretch" : "flex-end"}
+                style={{
+                  flexDirection: isMobile ? "column-reverse" : "row",
+                  width: isMobile ? "100%" : undefined,
+                } as React.CSSProperties}
+              >
+                <SketchBtn
+                  size={isMobile ? "sm" : "md"}
+                  to="/home"
+                  full={isMobile}
+                >
+                  キャンセル
+                </SketchBtn>
+                <SketchBtn
+                  size={isMobile ? "sm" : "md"}
+                  primary
+                  icon="✓"
+                  onClick={onConfirm}
+                  full={isMobile}
+                >
                   取り込む
                 </SketchBtn>
               </Row>
-            </Row>
+            </div>
           </>
         )}
       </div>

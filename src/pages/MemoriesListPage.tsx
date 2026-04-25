@@ -337,14 +337,17 @@ export default function MemoriesListPage() {
                   ? formatPerson(family?.people[m.protagonistId])
                   : "—"
               }
-              viewerNames={
-                m.viewers.length > 0
-                  ? m.viewers
-                      .map((v) => family?.people[v]?.given)
-                      .filter(Boolean)
-                      .join("・")
-                  : "家族全員"
-              }
+              viewerNames={(() => {
+                if (m.viewers.length === 0) return "家族全員";
+                // 名前を集めるが、Chip の幅が爆発しないよう 4 名で打ち切り、
+                // 残りは「他 N 名」と省略表示。
+                const MAX = 4;
+                const names = m.viewers
+                  .map((v) => family?.people[v]?.given)
+                  .filter(Boolean) as string[];
+                if (names.length <= MAX) return names.join("・");
+                return names.slice(0, MAX).join("・") + ` ほか ${names.length - MAX} 名`;
+              })()}
             />
           ))}
           {sorted.length === 0 && (

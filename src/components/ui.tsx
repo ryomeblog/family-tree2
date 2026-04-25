@@ -219,8 +219,24 @@ export const SketchBtn: React.FC<{
   type = "button",
   title,
 }) => {
-  const pad =
-    size === "sm" ? "6px 14px" : size === "lg" ? "14px 28px" : "10px 20px";
+  // children が空（アイコンのみ）かどうか判定。空文字列・null・空配列は icon-only とみなす。
+  const isIconOnly =
+    !!icon &&
+    (children === undefined ||
+      children === null ||
+      children === "" ||
+      (Array.isArray(children) && children.length === 0));
+  const pad = isIconOnly
+    ? size === "sm"
+      ? "6px 8px"
+      : size === "lg"
+        ? "12px 14px"
+        : "8px 10px"
+    : size === "sm"
+      ? "6px 14px"
+      : size === "lg"
+        ? "14px 28px"
+        : "10px 20px";
   const fs = size === "sm" ? 13 : size === "lg" ? 17 : 14;
   const bg = primary ? C.shu : danger ? "#FFF5F2" : "#FFFDF2";
   const fg = primary ? "#FFFEF8" : danger ? C.shu : C.sumi;

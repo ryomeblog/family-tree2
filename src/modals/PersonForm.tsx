@@ -121,14 +121,21 @@ export default function PersonForm({
       store.showToast("ok", `${next.surname}${next.given} を追加しました`);
     }
     if (andAdd) {
-      // clear most fields for the next entry
+      // 「保存して続けて追加」で次の人物を入れるため、全フィールドを初期化する。
+      // 写真は直前に保存した人物の Person.portrait として IDB に残るので
+      // フォーム側は ref を切るだけで OK（IDB の blob は削除しない）。
+      setSurname("");
       setGiven("");
       setRole("");
-      setNote("");
+      setKanaSurname("");
       setKanaGiven("");
       setMaiden("");
+      setGender("m");
+      setPlace("");
+      setNote("");
       setBirth(fuzzyToParts(undefined));
       setDeath(fuzzyToParts(undefined));
+      setPortrait(undefined);
       return;
     }
     onClose?.();

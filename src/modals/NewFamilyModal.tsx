@@ -236,7 +236,7 @@ export default function NewFamilyModal() {
                   />
                 </Row>
                 <Row gap={12} wrap align="flex-start" style={{ marginTop: 12 }}>
-                  <div style={{ minWidth: 360, flex: 1 }}>
+                  <div style={{ flex: "1 1 280px", minWidth: 0, maxWidth: "100%" }}>
                     <FuzzyDateInput
                       label="生年月日"
                       value={birth}
