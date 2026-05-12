@@ -77,8 +77,8 @@ type TreeEdge = UnionEdge | SingleEdge;
 const NODE_W = 144;
 const NODE_H = 76;
 const SPOUSE_GAP = 28;
-const SIBLING_GAP = 48;
-const COUPLE_GAP = 64; // horizontal gap between different couples at same gen
+const SIBLING_GAP = 48; // 同じ親（union/single）の子同士の間隔
+const COUPLE_GAP = 140; // 親が異なる subtree 同士の間隔（バス線が重なって見えないよう余裕を取る）
 const GEN_GAP = 170;
 const ORIGIN_Y = 60;
 const MARGIN_X = 60;
@@ -176,161 +176,244 @@ function layoutFamily(fam: FamilyArg) {
     }
   }
 
-  // ── Step 3: place persons by generation ─────────────────────────
-  const personX = new Map<string, number>();
-  // Key to lookup group mid: "u:<unionId>" for unions, "p:<personId>" for
-  // singles. midX is the "parent's midpoint" that children align to.
-  const groupMidX = new Map<string, number>();
+  // ── Step 3: build group tree & bottom-up subtree widths ──────────
+  // 各 group（couple または single）を1ノードとし、最下層の subtree 幅を
+  // 計算してから親世代を「子の中点」に配置する。これで線が構造的に重ならない。
+  //
+  // bridge couple（両配偶者ともに家系内に親がいる）は左配偶者の親側を
+  // 「主親」として配置する。右配偶者の親からは fam.links 経由で edge が
+  // 別途引かれる（既存の EdgesLayer が自動で扱う）。
+  interface Group {
+    key: string;
+    ids: [string] | [string, string]; // 配置順（left, right）
+    primaryParent?: string; // この group が属する親 group キー（無ければルート）
+    secondaryParent?: string; // bridge の場合のもう片方の親
+    leftIsPrimaryChild: boolean; // couple の場合: 左 partner が主親の子か
+    children: string[]; // この group の子 group キー
+    gen: number;
+  }
 
-  // Helper: return the parent-midpoint x for a given person, using
-  // already-placed coords at higher gens.
-  const parentMidX = (pid: string): number | undefined => {
-    const parent = parentOfPerson.get(pid);
-    if (!parent) return undefined;
-    if (parent.kind === "union") {
-      return groupMidX.get("u:" + parent.unionId);
-    }
-    return groupMidX.get("p:" + parent.personId);
+  const groups = new Map<string, Group>();
+  const groupKeyOf = new Map<string, string>(); // personId → groupKey
+  const parentKeyOf = (id: string): string | undefined => {
+    const par = parentOfPerson.get(id);
+    if (!par) return undefined;
+    return par.kind === "union" ? "u:" + par.unionId : "p:" + par.personId;
   };
 
-  for (let g = 0; g <= maxGen; g++) {
-    // Collect persons at this gen.
-    const gPersons = Object.values(fam.people).filter(
-      (p) => gen.get(p.id) === g,
-    );
-
-    // Group into union groups (2 persons) and singles.
-    const used = new Set<string>();
-    interface Group {
-      ids: [string] | [string, string]; // [a] or [a, b] where a is left
-      idealMid?: number;
-      key: string; // for groupMidX
-      unionId?: string;
-    }
-    const groups: Group[] = [];
-
-    for (const p of gPersons) {
-      if (used.has(p.id)) continue;
-      const u = unionByPerson.get(p.id);
-      if (u && !used.has(u.spouseId) && gen.get(u.spouseId) === g) {
-        used.add(p.id);
-        used.add(u.spouseId);
-        // Decide left/right order by preferred x of each partner.
-        const midP = parentMidX(p.id);
-        const midS = parentMidX(u.spouseId);
-        let leftId = p.id;
-        let rightId = u.spouseId;
-        if (midP !== undefined && midS !== undefined) {
-          if (midP > midS) {
-            leftId = u.spouseId;
-            rightId = p.id;
-          }
-        } else if (midS !== undefined && midP === undefined) {
-          leftId = u.spouseId;
-          rightId = p.id;
-        }
-        const midLeft = parentMidX(leftId);
-        const midRight = parentMidX(rightId);
-        let ideal: number | undefined;
-        if (midLeft !== undefined && midRight !== undefined) {
-          ideal = (midLeft + midRight) / 2;
-        } else if (midLeft !== undefined) {
-          ideal = midLeft + (NODE_W + SPOUSE_GAP) / 2;
-        } else if (midRight !== undefined) {
-          ideal = midRight - (NODE_W + SPOUSE_GAP) / 2;
-        }
-        groups.push({
-          ids: [leftId, rightId],
-          idealMid: ideal,
-          key: "u:" + u.unionId,
-          unionId: u.unionId,
-        });
-      } else {
-        used.add(p.id);
-        const mid = parentMidX(p.id);
-        groups.push({
-          ids: [p.id],
-          idealMid: mid,
-          key: "p:" + p.id,
-        });
+  for (const p of Object.values(fam.people)) {
+    if (groupKeyOf.has(p.id)) continue;
+    const u = unionByPerson.get(p.id);
+    if (
+      u &&
+      fam.people[u.spouseId] &&
+      gen.get(p.id) === gen.get(u.spouseId) &&
+      !groupKeyOf.has(u.spouseId)
+    ) {
+      const key = "u:" + u.unionId;
+      const parA = parentKeyOf(p.id);
+      const parB = parentKeyOf(u.spouseId);
+      // 配置順: 左に置きたい partner を先に。
+      // - 片方のみ親を持つ：親持ちが「主親側」、外から嫁いだ方は反対側に配置。
+      //   主親側は family の中央に近い側に置く（既定: 左）。
+      // - 両者親持ち（bridge）：a の親と b の親の上下関係（gen + ID）から
+      //   とりあえず「a を左、b を右」と暫定。ルート間の左右は配置時に決まる。
+      let leftId = p.id;
+      let rightId = u.spouseId;
+      let primaryParent: string | undefined;
+      let secondaryParent: string | undefined;
+      let leftIsPrimaryChild = true;
+      if (parA && parB) {
+        primaryParent = parA;
+        secondaryParent = parB;
+        leftIsPrimaryChild = true; // p.id が左、その親が主親
+      } else if (parA) {
+        primaryParent = parA;
+        leftIsPrimaryChild = true;
+      } else if (parB) {
+        primaryParent = parB;
+        // 親を持つ方を左に揃える（subtree が左に寄る）
+        leftId = u.spouseId;
+        rightId = p.id;
+        leftIsPrimaryChild = true;
       }
+      groups.set(key, {
+        key,
+        ids: [leftId, rightId],
+        primaryParent,
+        secondaryParent,
+        leftIsPrimaryChild,
+        children: [],
+        gen: gen.get(p.id) ?? 0,
+      });
+      groupKeyOf.set(p.id, key);
+      groupKeyOf.set(u.spouseId, key);
+    } else {
+      const key = "p:" + p.id;
+      groups.set(key, {
+        key,
+        ids: [p.id],
+        primaryParent: parentKeyOf(p.id),
+        leftIsPrimaryChild: true,
+        children: [],
+        gen: gen.get(p.id) ?? 0,
+      });
+      groupKeyOf.set(p.id, key);
     }
+  }
 
-    // Group width: for a union try to honor parent midpoint spacing.
-    const groupWidth = (g: Group): number => {
-      if (g.ids.length === 1) return NODE_W;
-      // Couple. If both partners have parent midpoints, try to space the
-      // partners such that each sits exactly under their parent mid.
-      const mA = parentMidX(g.ids[0]);
-      const mB = parentMidX(g.ids[1]);
-      let gap = SPOUSE_GAP;
-      if (mA !== undefined && mB !== undefined) {
-        gap = Math.max(SPOUSE_GAP, mB - mA - NODE_W);
-      }
-      return NODE_W * 2 + gap;
-    };
-
-    // Sort by idealMid (undefined last) to preserve left-right order.
-    groups.sort((a, b) => {
-      if (a.idealMid === undefined && b.idealMid === undefined) return 0;
-      if (a.idealMid === undefined) return 1;
-      if (b.idealMid === undefined) return -1;
-      return a.idealMid - b.idealMid;
+  // 子リストを構築（primaryParent のみ）
+  for (const g of groups.values()) {
+    if (g.primaryParent && groups.has(g.primaryParent)) {
+      groups.get(g.primaryParent)!.children.push(g.key);
+    }
+  }
+  // 子順: bridge couple は親世代の子ブロックの「端」（secondary parent の root に
+  // 近い側）に置きたい。今回は roots を [primary root, secondary root] の順で
+  // 並べているので、bridge couple は親の子リストの **末尾** に置く。
+  for (const g of groups.values()) {
+    g.children.sort((a, b) => {
+      const ga = groups.get(a)!;
+      const gb = groups.get(b)!;
+      const aBridge = !!ga.secondaryParent;
+      const bBridge = !!gb.secondaryParent;
+      if (aBridge !== bBridge) return aBridge ? 1 : -1;
+      return a.localeCompare(b);
     });
+  }
 
-    // Place left to right, respecting ideal but enforcing no overlap.
-    let cursor = MARGIN_X;
-    for (const grp of groups) {
-      const w = groupWidth(grp);
-      let midX: number;
-      if (grp.idealMid !== undefined) {
-        midX = Math.max(grp.idealMid, cursor + w / 2);
-      } else {
-        midX = cursor + w / 2;
-      }
-      const leftX = midX - w / 2;
+  // 各 group の subtree レイアウト
+  interface GroupLayout {
+    width: number; // subtree 全体幅
+    coupleLeftOffset: number; // subtree 左端から couple/single の左端まで
+    primaryAnchorOffset: number; // subtree 左端から「主親が接続する人物の centerX」まで
+    secondaryAnchorOffset?: number; // bridge: もう片方の親が接続する人物の centerX
+    childrenBlockOffset: number; // subtree 左端から子ブロック左端まで
+    childrenBlockWidth: number; // 子ブロック幅（子無しは 0）
+  }
+  const layouts = new Map<string, GroupLayout>();
 
-      if (grp.ids.length === 1) {
-        personX.set(grp.ids[0], leftX);
-        groupMidX.set(grp.key, midX);
-      } else {
-        // Preserve each partner's ideal x if possible; otherwise use
-        // standard spouse gap centered on midX.
-        const mA = parentMidX(grp.ids[0]);
-        const mB = parentMidX(grp.ids[1]);
-        if (
-          mA !== undefined &&
-          mB !== undefined &&
-          mB - mA >= NODE_W + SPOUSE_GAP
-        ) {
-          // Enough room to align partners under their parent midpoints.
-          personX.set(grp.ids[0], mA - NODE_W / 2);
-          personX.set(grp.ids[1], mB - NODE_W / 2);
-          // Shift if partners would overlap previous group.
-          const aX = mA - NODE_W / 2;
-          if (aX < cursor) {
-            const shift = cursor - aX;
-            personX.set(grp.ids[0], aX + shift);
-            personX.set(grp.ids[1], mB - NODE_W / 2 + shift);
-          }
-          const finalAx = personX.get(grp.ids[0])!;
-          const finalBx = personX.get(grp.ids[1])!;
-          const unionCenter = (finalAx + NODE_W + finalBx) / 2;
-          groupMidX.set(grp.key, unionCenter);
-        } else {
-          // Default: partners adjacent with SPOUSE_GAP, centered on midX.
-          personX.set(grp.ids[0], leftX);
-          personX.set(grp.ids[1], leftX + NODE_W + SPOUSE_GAP);
-          groupMidX.set(grp.key, midX);
-        }
-      }
+  const ownWidth = (g: Group): number =>
+    g.ids.length === 2 ? NODE_W * 2 + SPOUSE_GAP : NODE_W;
 
-      const actualRight =
-        grp.ids.length === 1
-          ? personX.get(grp.ids[0])! + NODE_W
-          : personX.get(grp.ids[1])! + NODE_W;
-      cursor = actualRight + COUPLE_GAP;
+  const computeLayout = (key: string): GroupLayout => {
+    const cached = layouts.get(key);
+    if (cached) return cached;
+    const g = groups.get(key)!;
+    const own = ownWidth(g);
+
+    // 子ブロック幅（再帰）
+    let childrenBlockWidth = 0;
+    for (let i = 0; i < g.children.length; i++) {
+      const cl = computeLayout(g.children[i]);
+      childrenBlockWidth += cl.width;
+      if (i > 0) childrenBlockWidth += SIBLING_GAP;
     }
+
+    let width: number;
+    let coupleLeftOffset: number;
+    let childrenBlockOffset: number;
+    if (childrenBlockWidth > own) {
+      width = childrenBlockWidth;
+      coupleLeftOffset = (childrenBlockWidth - own) / 2;
+      childrenBlockOffset = 0;
+    } else {
+      width = own;
+      coupleLeftOffset = 0;
+      childrenBlockOffset = (own - childrenBlockWidth) / 2;
+    }
+
+    // 主親アンカー（親 bus がここに落ちる）
+    let primaryAnchorOffset: number;
+    let secondaryAnchorOffset: number | undefined;
+    if (g.ids.length === 1) {
+      primaryAnchorOffset = coupleLeftOffset + NODE_W / 2;
+    } else {
+      const leftCenter = coupleLeftOffset + NODE_W / 2;
+      const rightCenter = coupleLeftOffset + NODE_W + SPOUSE_GAP + NODE_W / 2;
+      primaryAnchorOffset = g.leftIsPrimaryChild ? leftCenter : rightCenter;
+      if (g.secondaryParent) {
+        secondaryAnchorOffset = g.leftIsPrimaryChild ? rightCenter : leftCenter;
+      }
+    }
+
+    const result: GroupLayout = {
+      width,
+      coupleLeftOffset,
+      primaryAnchorOffset,
+      secondaryAnchorOffset,
+      childrenBlockOffset,
+      childrenBlockWidth,
+    };
+    layouts.set(key, result);
+    return result;
+  };
+
+  // ルート（親無し）を抽出。複数ある場合は左右に並べる。
+  // 並び順: bridge 関係を考慮して、bridge の primary 親 → secondary 親の順。
+  const roots = Array.from(groups.values())
+    .filter((g) => !g.primaryParent)
+    .map((g) => g.key);
+  // 安定ソート: 関連 bridge が多い root → 少ない root の順、とすると
+  // bridge couple が左 root の右端に来て secondary 親が右 root の左寄りに来やすい。
+  // ここでは単純に keys を辞書順で並べる（手調整は今後）。
+  roots.sort();
+  // ただし bridge couple が存在する場合、その primary 親と secondary 親が
+  // 隣接するように並べ替える。
+  const bridges = Array.from(groups.values()).filter((g) => g.secondaryParent);
+  if (bridges.length > 0 && roots.length >= 2) {
+    // 最初の bridge を基に、primary 親 root → secondary 親 root の順を確定
+    const b = bridges[0];
+    const primaryRoot = (() => {
+      let cur = groups.get(b.primaryParent!);
+      while (cur && cur.primaryParent) cur = groups.get(cur.primaryParent);
+      return cur?.key;
+    })();
+    const secondaryRoot = (() => {
+      let cur = groups.get(b.secondaryParent!);
+      while (cur && cur.primaryParent) cur = groups.get(cur.primaryParent);
+      return cur?.key;
+    })();
+    if (primaryRoot && secondaryRoot) {
+      const others = roots.filter(
+        (r) => r !== primaryRoot && r !== secondaryRoot,
+      );
+      const ordered = [primaryRoot, secondaryRoot, ...others];
+      roots.length = 0;
+      roots.push(...ordered);
+    }
+  }
+
+  for (const r of roots) computeLayout(r);
+
+  // ── Step 4: top-down 配置 ─────────────────────────────────────────
+  const personX = new Map<string, number>();
+
+  const placeGroup = (key: string, leftEdge: number) => {
+    const g = groups.get(key)!;
+    const lay = layouts.get(key)!;
+    const coupleX = leftEdge + lay.coupleLeftOffset;
+    if (g.ids.length === 1) {
+      personX.set(g.ids[0], coupleX);
+    } else {
+      personX.set(g.ids[0], coupleX);
+      personX.set(g.ids[1], coupleX + NODE_W + SPOUSE_GAP);
+    }
+    let cursor = leftEdge + lay.childrenBlockOffset;
+    for (let i = 0; i < g.children.length; i++) {
+      const ck = g.children[i];
+      const cl = layouts.get(ck)!;
+      placeGroup(ck, cursor);
+      cursor += cl.width;
+      if (i < g.children.length - 1) cursor += SIBLING_GAP;
+    }
+  };
+
+  let cursorX = MARGIN_X;
+  for (const r of roots) {
+    const lay = layouts.get(r)!;
+    placeGroup(r, cursorX);
+    cursorX += lay.width + COUPLE_GAP;
   }
 
   // ── Step 4: emit nodes and edges ─────────────────────────────────
@@ -1013,10 +1096,129 @@ const PrintTree: React.FC<{
   </div>
 );
 
+// 同じ世代遷移で X 範囲が重なるバス線を異なる Y（トラック）に振り分け、
+// 隣接夫婦のバスが視覚的に 1 本に見えてしまうのを防ぐ。
+// トラック 0 は従来位置、それ以降は子方向にずらす（親寄りにずらすと
+// 親ボックス底辺と被るため）。
+const TRACK_DELTA = 18;
+const TRACK_BUFFER = 12; // バス同士の最小水平余白
+
+interface EdgeGeom {
+  type: "union" | "single";
+  edgeIdx: number;
+  spouseY?: number; // union: 夫婦バーの Y
+  spouseStart?: number;
+  spouseEnd?: number;
+  parentX: number; // バスへの垂直線が落ちる X（unionMid または single 親の centerX）
+  parentDropFromY: number; // バスへ向けて垂直線を始める Y（union: spouseY、single: 親 bottom Y）
+  childY: number; // 子の上端 Y
+  busLeft: number;
+  busRight: number;
+  childCenters: number[];
+}
+
 const EdgesLayer: React.FC<{
   layout: { nodes: Node[]; edges: TreeEdge[]; width: number; height: number };
 }> = ({ layout }) => {
   const byId = new Map(layout.nodes.map((n) => [n.id, n]));
+
+  // 1) 各 edge の幾何情報を集める
+  const geoms: (EdgeGeom | null)[] = layout.edges.map((edge, edgeIdx) => {
+    if (edge.type === "union") {
+      const a = byId.get(edge.aId);
+      const b = byId.get(edge.bId);
+      if (!a || !b) return null;
+      const left = a.x < b.x ? a : b;
+      const right = a.x < b.x ? b : a;
+      const y = a.y + NODE_H / 2;
+      const barStart = left.x + NODE_W;
+      const barEnd = right.x;
+      const unionMid = (barStart + barEnd) / 2;
+      if (edge.childIds.length === 0) {
+        return {
+          type: "union",
+          edgeIdx,
+          spouseY: y,
+          spouseStart: barStart,
+          spouseEnd: barEnd,
+          parentX: unionMid,
+          parentDropFromY: y,
+          childY: y,
+          busLeft: unionMid,
+          busRight: unionMid,
+          childCenters: [],
+        };
+      }
+      const children = edge.childIds
+        .map((id) => byId.get(id))
+        .filter((n): n is Node => Boolean(n));
+      if (children.length === 0) return null;
+      const childY = children[0].y;
+      const centers = children.map((c) => c.x + NODE_W / 2);
+      return {
+        type: "union",
+        edgeIdx,
+        spouseY: y,
+        spouseStart: barStart,
+        spouseEnd: barEnd,
+        parentX: unionMid,
+        parentDropFromY: y,
+        childY,
+        busLeft: Math.min(unionMid, ...centers),
+        busRight: Math.max(unionMid, ...centers),
+        childCenters: centers,
+      };
+    }
+    const p = byId.get(edge.parentId);
+    if (!p || edge.childIds.length === 0) return null;
+    const children = edge.childIds
+      .map((id) => byId.get(id))
+      .filter((n): n is Node => Boolean(n));
+    if (children.length === 0) return null;
+    const parentX = p.x + NODE_W / 2;
+    const parentBottomY = p.y + NODE_H;
+    const childY = children[0].y;
+    const centers = children.map((c) => c.x + NODE_W / 2);
+    return {
+      type: "single",
+      edgeIdx,
+      parentX,
+      parentDropFromY: parentBottomY,
+      childY,
+      busLeft: Math.min(parentX, ...centers),
+      busRight: Math.max(parentX, ...centers),
+      childCenters: centers,
+    };
+  });
+
+  // 2) 子の Y（世代遷移）ごとにグループ化して interval scheduling でトラック割当
+  const trackOf = new Map<number, number>();
+  const buckets = new Map<number, EdgeGeom[]>();
+  geoms.forEach((g) => {
+    if (!g || g.childCenters.length === 0) return;
+    if (!buckets.has(g.childY)) buckets.set(g.childY, []);
+    buckets.get(g.childY)!.push(g);
+  });
+  for (const list of buckets.values()) {
+    list.sort((a, b) => a.busLeft - b.busLeft);
+    const tracks: number[] = []; // それぞれのトラックで使われている右端 X
+    for (const g of list) {
+      let placed = -1;
+      for (let t = 0; t < tracks.length; t++) {
+        if (tracks[t] + TRACK_BUFFER < g.busLeft) {
+          tracks[t] = g.busRight;
+          placed = t;
+          break;
+        }
+      }
+      if (placed === -1) {
+        placed = tracks.length;
+        tracks.push(g.busRight);
+      }
+      trackOf.set(g.edgeIdx, placed);
+    }
+  }
+
   return (
     <svg
       width={layout.width}
@@ -1025,83 +1227,80 @@ const EdgesLayer: React.FC<{
     >
       <g stroke={C.sumi} strokeWidth="1" fill="none" strokeLinecap="round">
         {layout.edges.map((edge, idx) => {
-          if (edge.type === "union") {
-            const a = byId.get(edge.aId);
-            const b = byId.get(edge.bId);
-            if (!a || !b) return null;
-            const left = a.x < b.x ? a : b;
-            const right = a.x < b.x ? b : a;
-            const y = a.y + NODE_H / 2;
-            const barStart = left.x + NODE_W;
-            const barEnd = right.x;
-            const unionMid = (barStart + barEnd) / 2;
+          const g = geoms[idx];
+          if (!g) return null;
+          if (edge.type === "union" && edge.childIds.length === 0) {
+            return (
+              <line
+                key={`u-${idx}`}
+                x1={g.spouseStart!}
+                y1={g.spouseY!}
+                x2={g.spouseEnd!}
+                y2={g.spouseY!}
+              />
+            );
+          }
+          const baseDistY = (g.parentDropFromY + g.childY) / 2;
+          const track = trackOf.get(idx) ?? 0;
+          // 子方向にトラックを下ろす。child の上端を超えないようクランプ。
+          const maxY = g.childY - 6;
+          const distY = Math.min(baseDistY + track * TRACK_DELTA, maxY);
 
-            if (edge.childIds.length === 0) {
-              return (
-                <line
-                  key={`u-${idx}`}
-                  x1={barStart}
-                  y1={y}
-                  x2={barEnd}
-                  y2={y}
-                />
-              );
-            }
-            const children = edge.childIds
-              .map((id) => byId.get(id))
-              .filter(Boolean) as Node[];
-            const childY = children[0].y;
-            const distY = (y + childY) / 2;
-            const centers = children.map((c) => c.x + NODE_W / 2);
-            const barLeft = Math.min(unionMid, ...centers);
-            const barRight = Math.max(unionMid, ...centers);
+          if (edge.type === "union") {
             return (
               <g key={`u-${idx}`}>
-                <line x1={barStart} y1={y} x2={barEnd} y2={y} />
-                <line x1={unionMid} y1={y} x2={unionMid} y2={distY} />
-                <line x1={barLeft} y1={distY} x2={barRight} y2={distY} />
-                {centers.map((cx, i) => (
+                <line
+                  x1={g.spouseStart!}
+                  y1={g.spouseY!}
+                  x2={g.spouseEnd!}
+                  y2={g.spouseY!}
+                />
+                <line
+                  x1={g.parentX}
+                  y1={g.spouseY!}
+                  x2={g.parentX}
+                  y2={distY}
+                />
+                <line
+                  x1={g.busLeft}
+                  y1={distY}
+                  x2={g.busRight}
+                  y2={distY}
+                />
+                {g.childCenters.map((cx, i) => (
                   <line
                     key={i}
                     x1={cx}
                     y1={distY}
                     x2={cx}
-                    y2={childY}
+                    y2={g.childY}
                   />
                 ))}
               </g>
             );
           }
-          // single-parent edge
-          const p = byId.get(edge.parentId);
-          if (!p || edge.childIds.length === 0) return null;
-          const children = edge.childIds
-            .map((id) => byId.get(id))
-            .filter(Boolean) as Node[];
-          if (children.length === 0) return null;
-          const parentBottomX = p.x + NODE_W / 2;
-          const parentBottomY = p.y + NODE_H;
-          const childY = children[0].y;
-          const distY = (parentBottomY + childY) / 2;
-          const centers = children.map((c) => c.x + NODE_W / 2);
-          const barLeft = Math.min(parentBottomX, ...centers);
-          const barRight = Math.max(parentBottomX, ...centers);
+          // single
           return (
             <g key={`s-${idx}`}>
               <line
-                x1={parentBottomX}
-                y1={parentBottomY}
-                x2={parentBottomX}
+                x1={g.parentX}
+                y1={g.parentDropFromY}
+                x2={g.parentX}
                 y2={distY}
               />
-              <line x1={barLeft} y1={distY} x2={barRight} y2={distY} />
-              {centers.map((cx, i) => (
+              <line
+                x1={g.busLeft}
+                y1={distY}
+                x2={g.busRight}
+                y2={distY}
+              />
+              {g.childCenters.map((cx, i) => (
                 <line
                   key={i}
                   x1={cx}
                   y1={distY}
                   x2={cx}
-                  y2={childY}
+                  y2={g.childY}
                 />
               ))}
             </g>
